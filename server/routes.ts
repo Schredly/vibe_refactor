@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
-import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema } from "@shared/schema";
 import { z } from "zod";
 
 let openai: OpenAI | null = null;
@@ -635,6 +635,108 @@ IMPORTANT RULES:
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to clean text" });
+    }
+  });
+
+  // Research & Examples endpoint - provides concrete examples based on question context
+  app.post("/api/researchExamples", async (req, res) => {
+    try {
+      const validatedData = researchExamplesRequestSchema.parse(req.body);
+      const { projectName, contextSummary, currentQuestion, userAnswer } = validatedData;
+
+      // Return mock data if OpenAI is not available
+      if (!openai) {
+        console.log("OpenAI not configured, returning mock research examples");
+        return res.json({
+          insights: [
+            "Consider how similar solutions in the market approach this problem",
+            "Think about edge cases and how users might work around limitations",
+          ],
+          concreteExamples: [
+            {
+              title: "Example Implementation",
+              description: "A common approach is to use a modular architecture that allows for flexibility.",
+              relevance: "Applicable to your MVP scope",
+            },
+          ],
+          industryPractices: [
+            "Most successful products in this space start with a focused feature set",
+          ],
+        });
+      }
+
+      const systemPrompt = `You are a product research assistant helping to refine MVP requirements. Based on the project context and the user's answer to a specific question, provide:
+
+1. INSIGHTS: 2-3 key insights or thoughts that could help clarify or strengthen the answer
+2. CONCRETE EXAMPLES: 2-4 real-world examples of how others have solved similar problems. Include:
+   - Title: A short name for the example
+   - Description: What they did and how it worked
+   - Relevance: Why this is relevant to the user's situation
+3. INDUSTRY PRACTICES: 2-3 common practices or patterns used in this space
+
+Project: ${projectName}
+Context: ${contextSummary}
+
+Respond in JSON format:
+{
+  "insights": ["insight1", "insight2"],
+  "concreteExamples": [
+    {"title": "Example Name", "description": "What they did", "relevance": "Why it matters"}
+  ],
+  "industryPractices": ["practice1", "practice2"]
+}`;
+
+      try {
+        console.log("Calling OpenAI for research examples...");
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("OpenAI timeout")), 30000)
+        );
+        
+        const openaiPromise = openai.chat.completions.create({
+          model: "gpt-5.1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Question: ${currentQuestion}\n\nUser's Answer: ${userAnswer}\n\nProvide research and examples to help make this answer more concrete and well-informed.` },
+          ],
+          max_completion_tokens: 2000,
+        });
+
+        const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+
+        const content = response.choices[0]?.message?.content?.trim();
+        
+        if (!content) {
+          throw new Error("Empty response from OpenAI");
+        }
+
+        // Parse JSON response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error("Could not parse JSON from response");
+        }
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        return res.json({
+          insights: parsed.insights || [],
+          concreteExamples: parsed.concreteExamples || [],
+          industryPractices: parsed.industryPractices || [],
+        });
+      } catch (aiError) {
+        console.error("OpenAI API error for research examples:", aiError);
+        return res.json({
+          insights: ["Research temporarily unavailable. Try again in a moment."],
+          concreteExamples: [],
+          industryPractices: [],
+        });
+      }
+    } catch (error) {
+      console.error("Error in research examples:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to get research examples" });
     }
   });
 

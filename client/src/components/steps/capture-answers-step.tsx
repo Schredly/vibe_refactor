@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSpeechTranscription } from "@/hooks/use-speech-transcription";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Question, AgentContext, AgentAssistResponse } from "@shared/schema";
+import type { Question, AgentContext, AgentAssistResponse, ResearchExamplesResponse } from "@shared/schema";
 
 interface CaptureAnswersStepProps {
   questions: Question[];
@@ -61,6 +61,8 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
   const [cleanLoading, setCleanLoading] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState<number>(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [researchLoading, setResearchLoading] = useState<string | null>(null);
+  const [researchResults, setResearchResults] = useState<Map<string, ResearchExamplesResponse>>(new Map());
   const { toast } = useToast();
 
   const activeQuestion = questions[activeQuestionIndex];
@@ -240,7 +242,52 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
       newMap.delete(questionId);
       return newMap;
     });
+    // Also clear research results when assist is dismissed
+    setResearchResults(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(questionId);
+      return newMap;
+    });
   }, []);
+
+  const handleGetResearchExamples = useCallback(async (question: Question) => {
+    if (!question.answerText?.trim()) {
+      return;
+    }
+
+    setResearchLoading(question.id);
+
+    try {
+      const response = await Promise.race([
+        apiRequest("POST", "/api/researchExamples", {
+          projectName,
+          contextSummary: agentContext?.systemPrompt || "",
+          currentQuestion: question.text,
+          userAnswer: question.answerText,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Request timeout")), 45000)
+        ),
+      ]);
+
+      const data = await (response as Response).json();
+      
+      setResearchResults(prev => {
+        const newMap = new Map(prev);
+        newMap.set(question.id, data);
+        return newMap;
+      });
+    } catch (error) {
+      console.error("Error fetching research examples:", error);
+      toast({
+        title: "Research unavailable",
+        description: "Could not load examples. Please try again.",
+        variant: "default",
+      });
+    } finally {
+      setResearchLoading(null);
+    }
+  }, [projectName, agentContext, toast]);
 
   const handleCleanText = useCallback(async (question: Question) => {
     if (!question.answerText?.trim()) {
@@ -703,6 +750,85 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                               <p className="text-sm text-muted-foreground">
                                 {assistResults.get(question.id)!.improvementAreas!.join(", ")}
                               </p>
+                            </div>
+                          )}
+
+                          {/* Get Examples button */}
+                          {!researchResults.has(question.id) && (
+                            <div className="mt-4 pt-3 border-t border-primary/10">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => handleGetResearchExamples(question)}
+                                disabled={researchLoading === question.id}
+                                data-testid={`button-get-examples-${question.id}`}
+                              >
+                                {researchLoading === question.id ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Researching...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="w-4 h-4" />
+                                    Get Research & Examples
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Research Results */}
+                          {researchResults.has(question.id) && (
+                            <div className="mt-4 pt-3 border-t border-primary/10 space-y-4">
+                              <p className="text-xs font-medium text-primary uppercase tracking-wider flex items-center gap-2">
+                                <Sparkles className="w-3 h-3" />
+                                Research & Examples
+                              </p>
+
+                              {researchResults.get(question.id)?.insights && researchResults.get(question.id)!.insights.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Key Insights</p>
+                                  <ul className="space-y-1">
+                                    {researchResults.get(question.id)!.insights.map((insight, i) => (
+                                      <li key={i} className="text-sm flex items-start gap-2">
+                                        <span className="text-primary mt-0.5">•</span>
+                                        <span>{insight}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {researchResults.get(question.id)?.concreteExamples && researchResults.get(question.id)!.concreteExamples.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">Concrete Examples</p>
+                                  <div className="space-y-3">
+                                    {researchResults.get(question.id)!.concreteExamples.map((example, i) => (
+                                      <div key={i} className="p-3 rounded-lg bg-background border">
+                                        <p className="font-medium text-sm">{example.title}</p>
+                                        <p className="text-sm text-muted-foreground mt-1">{example.description}</p>
+                                        <p className="text-xs text-primary mt-2">Why relevant: {example.relevance}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {researchResults.get(question.id)?.industryPractices && researchResults.get(question.id)!.industryPractices!.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Industry Practices</p>
+                                  <ul className="space-y-1">
+                                    {researchResults.get(question.id)!.industryPractices!.map((practice, i) => (
+                                      <li key={i} className="text-sm flex items-start gap-2">
+                                        <span className="text-primary mt-0.5">•</span>
+                                        <span>{practice}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

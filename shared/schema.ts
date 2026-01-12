@@ -127,6 +127,28 @@ export const cleanTextRequestSchema = z.object({
 
 export type CleanTextRequest = z.infer<typeof cleanTextRequestSchema>;
 
+// Research & Examples schemas
+export const researchExamplesRequestSchema = z.object({
+  projectName: z.string(),
+  contextSummary: z.string(),
+  currentQuestion: z.string(),
+  userAnswer: z.string(),
+});
+
+export type ResearchExamplesRequest = z.infer<typeof researchExamplesRequestSchema>;
+
+export const researchExamplesResponseSchema = z.object({
+  insights: z.array(z.string()),
+  concreteExamples: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    relevance: z.string(),
+  })),
+  industryPractices: z.array(z.string()).optional(),
+});
+
+export type ResearchExamplesResponse = z.infer<typeof researchExamplesResponseSchema>;
+
 export const generatePromptsRequestSchema = z.object({
   projectName: z.string(),
   summary: summarySchema,
