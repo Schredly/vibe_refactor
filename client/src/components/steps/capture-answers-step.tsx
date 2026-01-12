@@ -511,34 +511,36 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                               </p>
                             )}
                           </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                           
-                          {assistResults.has(question.id) && (
-                            <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20" data-testid={`agent-assist-result-${question.id}`}>
-                              <div className="flex items-start justify-between gap-2 mb-3">
-                                <div className="flex items-center gap-2">
-                                  <Sparkles className="w-4 h-4 text-primary" />
-                                  <span className="font-medium text-sm">Agent Assist</span>
-                                  {assistResults.get(question.id)?.isSpecificEnough ? (
-                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                      Good detail
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                      Needs more detail
-                                    </Badge>
-                                  )}
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => clearAssistResult(question.id)}
-                                  data-testid={`button-dismiss-assist-${question.id}`}
-                                >
-                                  <span className="sr-only">Dismiss</span>
-                                  <span className="text-muted-foreground text-sm">×</span>
-                                </Button>
-                              </div>
+                      {assistResults.has(question.id) && (
+                        <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20" data-testid={`agent-assist-result-${question.id}`}>
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              <span className="font-medium text-sm">Agent Assist</span>
+                              {assistResults.get(question.id)?.isSpecificEnough ? (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                  Good detail
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                  Needs more detail
+                                </Badge>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => clearAssistResult(question.id)}
+                              data-testid={`button-dismiss-assist-${question.id}`}
+                            >
+                              <span className="sr-only">Dismiss</span>
+                              <span className="text-muted-foreground text-sm">×</span>
+                            </Button>
+                          </div>
                               
                               {assistResults.get(question.id)?.suggestions && assistResults.get(question.id)!.suggestions.length > 0 && (
                                 <div className="space-y-2">
@@ -554,18 +556,16 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                                 </div>
                               )}
                               
-                              {assistResults.get(question.id)?.improvementAreas && assistResults.get(question.id)!.improvementAreas!.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-primary/10">
-                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Areas to expand</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {assistResults.get(question.id)!.improvementAreas!.join(", ")}
-                                  </p>
-                                </div>
-                              )}
+                          {assistResults.get(question.id)?.improvementAreas && assistResults.get(question.id)!.improvementAreas!.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-primary/10">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Areas to expand</p>
+                              <p className="text-sm text-muted-foreground">
+                                {assistResults.get(question.id)!.improvementAreas!.join(", ")}
+                              </p>
                             </div>
                           )}
-                        </CollapsibleContent>
-                      </Collapsible>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
