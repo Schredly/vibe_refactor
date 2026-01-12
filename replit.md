@@ -85,6 +85,11 @@ Request: { projectName: string, summary: Summary, questions: Question[] }
 Response: { prompts: PromptBundle[] }
 ```
 
+### Error Handling
+- Server-side 45s timeout for OpenAI calls
+- Automatic fallback to mock data when AI fails or times out
+- Client-side 60s timeout with error toast notifications
+
 ## Running the App
 The app runs on port 5000 with `npm run dev`.
 
