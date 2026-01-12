@@ -52,39 +52,60 @@ shared/
 - Voice recording via Web Speech API
 - Keyboard shortcuts: R = Record/Stop, P = Pause/Resume, N = Next question
 - Pause and resume recording mid-sentence
-- Continue Recording to append to existing answers
+- Continue Recording to append to existing answers (supports cursor-position insertion)
 - Real-time transcript display
 - Manual text editing fallback
+- Clean Text: AI-powered text cleanup for grammar and flow
 - **Agent Assist**: AI-powered suggestions to improve answer specificity
+- **Research & Examples**: Provides concrete examples, industry practices, and insights
 
-### 3. Review & Summarize (Step 3)
-- AI-generated MVP summary via OpenAI
-- Editable sections for refinement
-- "Agreed" status for confirmation
+### 3. Review & Summarize (Step 3) - Detailed MVP Plan
+AI generates a comprehensive 8-section MVP plan with sectional editing:
+- **One-Sentence Definition**: Clear MVP purpose statement
+- **MVP Scope**: Includes/Excludes lists (editable)
+- **Screens**: Detailed screen definitions with UI elements (editable)
+- **User Flow**: Step-by-step user journey (editable)
+- **AI Architecture**: Agent roles and responsibilities (if applicable)
+- **Data Sources**: MVP and future data sources
+- **Legal Guardrails**: Safety and compliance considerations
+- **Build Prompt**: Replit-ready comprehensive build prompt (editable)
+
+Each section is collapsible and editable before proceeding to Build Pack.
 
 ### 4. Generate Build Pack (Step 4)
-- Creates categorized prompt bundles
+- Creates categorized prompt bundles from detailed summary
 - Categories: Product Overview, User Flows, UI Spec, API Spec, etc.
 - Copy individual prompts or Master Prompt
 
 ### 5. Create App (Step 5)
 - One-click copy of Master Prompt
+- Quality check based on detailed summary completeness
 - Step-by-step Replit Agent instructions
 - Export as Markdown or JSON
 
 ## API Endpoints
 
 ### POST /api/summarize
-Generates AI summary from Q&A pairs.
+Generates detailed AI MVP plan from Q&A pairs.
 ```typescript
 Request: { projectName: string, questions: { text: string, answerText?: string }[] }
-Response: { mvpSummary, assumptions, openQuestions, recommendedMvpScope, risks }
+Response: DetailedSummary {
+  oneSentenceDefinition: string,
+  mvpScope: { includes: string[], excludes: string[] },
+  screens: ScreenDefinition[],
+  userFlow: string[],
+  aiArchitecture?: { roles: AgentRole[], notes: string },
+  dataSources: { mvpSources: string[], futureSources?: string[] },
+  legalGuardrails: string[],
+  buildPrompt: string,
+  lastGeneratedAt: string
+}
 ```
 
 ### POST /api/generatePrompts
-Generates Build Pack prompts.
+Generates Build Pack prompts from detailed summary.
 ```typescript
-Request: { projectName: string, summary: Summary, questions: Question[] }
+Request: { projectName: string, detailedSummary: DetailedSummary, questions: Question[] }
 Response: { prompts: PromptBundle[] }
 ```
 
@@ -102,10 +123,24 @@ Request: { projectName: string, contextSummary: string, currentQuestion: string,
 Response: { isSpecificEnough: boolean, suggestions: string[], improvementAreas?: string[] }
 ```
 
+### POST /api/researchExamples
+Provides research-backed examples and industry insights.
+```typescript
+Request: { projectName: string, contextSummary: string, currentQuestion: string, userAnswer: string }
+Response: { insights: string[], concreteExamples: ConcreteExample[], industryPractices?: string[] }
+```
+
+### POST /api/cleanText
+Cleans up speech-to-text transcriptions.
+```typescript
+Request: { text: string }
+Response: { cleanedText: string }
+```
+
 ### Error Handling
-- Server-side 45s timeout for OpenAI calls
+- Server-side 45-60s timeout for OpenAI calls (varies by endpoint complexity)
 - Automatic fallback to mock data when AI fails or times out
-- Client-side 60s timeout with error toast notifications
+- Client-side 60-90s timeout with error toast notifications
 
 ## Running the App
 The app runs on port 5000 with `npm run dev`.

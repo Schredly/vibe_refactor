@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { PromptBundle, Summary, Question } from "@shared/schema";
+import type { PromptBundle, DetailedSummary, Question } from "@shared/schema";
 
 interface GenerateBuildPackStepProps {
   projectName: string;
-  summary: Summary | undefined;
+  detailedSummary: DetailedSummary | undefined;
   questions: Question[];
   prompts: PromptBundle[] | undefined;
   onSavePrompts: (prompts: PromptBundle[]) => void;
@@ -120,7 +120,7 @@ function PromptCard({
 
 export function GenerateBuildPackStep({
   projectName,
-  summary,
+  detailedSummary,
   questions,
   prompts,
   onSavePrompts,
@@ -133,11 +133,11 @@ export function GenerateBuildPackStep({
   const answeredQuestions = questions.filter((q) => !!q.answerText);
 
   const categories = prompts
-    ? [...new Set(prompts.map((p) => p.category))]
+    ? Array.from(new Set(prompts.map((p) => p.category)))
     : [];
 
   const handleGenerate = async () => {
-    if (!summary) return;
+    if (!detailedSummary) return;
 
     setIsGenerating(true);
 
@@ -150,7 +150,7 @@ export function GenerateBuildPackStep({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectName,
-          summary,
+          detailedSummary,
           questions: answeredQuestions.map((q) => ({
             text: q.text,
             answerText: q.answerText,
@@ -175,7 +175,7 @@ export function GenerateBuildPackStep({
 
       toast({
         title: "Build Pack Generated",
-        description: `Created ${data.prompts.length} prompt bundles across ${[...new Set(data.prompts.map((p: PromptBundle) => p.category))].length} categories.`,
+        description: `Created ${data.prompts.length} prompt bundles across ${Array.from(new Set(data.prompts.map((p: PromptBundle) => p.category))).length} categories.`,
       });
     } catch (error) {
       console.error("Generate prompts error:", error);
@@ -240,7 +240,7 @@ export function GenerateBuildPackStep({
       <div className="flex items-center gap-3">
         <Button
           onClick={handleGenerate}
-          disabled={isGenerating || !summary}
+          disabled={isGenerating || !detailedSummary}
           className="gap-2"
           data-testid="button-generate-prompts"
         >
@@ -256,7 +256,7 @@ export function GenerateBuildPackStep({
             </>
           )}
         </Button>
-        {!summary && (
+        {!detailedSummary && (
           <span className="text-sm text-muted-foreground">
             Please complete the summary step first.
           </span>

@@ -12,35 +12,35 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import type { PromptBundle, Summary } from "@shared/schema";
+import type { PromptBundle, DetailedSummary } from "@shared/schema";
 
 interface CreateAppStepProps {
   projectName: string;
   prompts: PromptBundle[] | undefined;
-  summary: Summary | undefined;
+  detailedSummary: DetailedSummary | undefined;
 }
 
-function QualityCheck({ summary, prompts }: { summary: Summary | undefined; prompts: PromptBundle[] | undefined }) {
+function QualityCheck({ detailedSummary, prompts }: { detailedSummary: DetailedSummary | undefined; prompts: PromptBundle[] | undefined }) {
   const checks = [
     {
       label: "Summary agreed",
-      passed: summary?.agreed === true,
+      passed: detailedSummary?.agreed === true,
     },
     {
       label: "MVP scope defined",
-      passed: summary?.recommendedMvpScope?.include && summary.recommendedMvpScope.include.length > 0,
+      passed: detailedSummary?.mvpScope?.includes && detailedSummary.mvpScope.includes.length > 0,
+    },
+    {
+      label: "Screens defined",
+      passed: detailedSummary?.screens && detailedSummary.screens.length > 0,
+    },
+    {
+      label: "User flow documented",
+      passed: detailedSummary?.userFlow && detailedSummary.userFlow.length > 0,
     },
     {
       label: "Build prompts generated",
       passed: prompts && prompts.length > 0,
-    },
-    {
-      label: "User flows documented",
-      passed: prompts?.some((p) => p.category.toLowerCase().includes("flow") || p.category.toLowerCase().includes("user")),
-    },
-    {
-      label: "UI requirements defined",
-      passed: prompts?.some((p) => p.category.toLowerCase().includes("ui") || p.title.toLowerCase().includes("screen")),
     },
   ];
 
@@ -77,7 +77,7 @@ function QualityCheck({ summary, prompts }: { summary: Summary | undefined; prom
   );
 }
 
-export function CreateAppStep({ projectName, prompts, summary }: CreateAppStepProps) {
+export function CreateAppStep({ projectName, prompts, detailedSummary }: CreateAppStepProps) {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
@@ -120,7 +120,7 @@ ${p.content}`).join("\n\n---\n\n")}`;
   const handleDownloadJSON = () => {
     const data = {
       projectName,
-      summary,
+      detailedSummary,
       prompts,
       exportedAt: new Date().toISOString(),
     };
@@ -171,7 +171,7 @@ ${p.content}`).join("\n\n---\n\n")}`;
         </CardContent>
       </Card>
 
-      <QualityCheck summary={summary} prompts={prompts} />
+      <QualityCheck detailedSummary={detailedSummary} prompts={prompts} />
 
       <Card>
         <CardHeader>

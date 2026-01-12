@@ -11,7 +11,7 @@ import { CreateAppStep } from "@/components/steps/create-app-step";
 import { useProjects } from "@/hooks/use-projects";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
-import type { Question, AgentContext } from "@shared/schema";
+import type { Question, AgentContext, DetailedSummary } from "@shared/schema";
 
 export default function Home() {
   const {
@@ -27,6 +27,7 @@ export default function Home() {
     setQuestions,
     updateQuestion,
     setSummary,
+    setDetailedSummary,
     setGeneratedPrompts,
     setScriptContent,
     setAgentContext,
@@ -125,8 +126,8 @@ export default function Home() {
           <ReviewSummarizeStep
             questions={activeProject.questions || []}
             projectName={activeProject.name}
-            summary={activeProject.summary}
-            onSaveSummary={setSummary}
+            detailedSummary={activeProject.detailedSummary}
+            onSaveDetailedSummary={setDetailedSummary}
             onContinue={() => setCurrentStep(4)}
           />
         );
@@ -134,7 +135,7 @@ export default function Home() {
         return (
           <GenerateBuildPackStep
             projectName={activeProject.name}
-            summary={activeProject.summary}
+            detailedSummary={activeProject.detailedSummary}
             questions={activeProject.questions || []}
             prompts={activeProject.generatedPrompts}
             onSavePrompts={setGeneratedPrompts}
@@ -146,7 +147,7 @@ export default function Home() {
           <CreateAppStep
             projectName={activeProject.name}
             prompts={activeProject.generatedPrompts}
-            summary={activeProject.summary}
+            detailedSummary={activeProject.detailedSummary}
           />
         );
       default:

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Project, InsertProject, Question, Summary, PromptBundle, AgentContext } from "@shared/schema";
+import type { Project, InsertProject, Question, Summary, DetailedSummary, PromptBundle, AgentContext } from "@shared/schema";
 
 const STORAGE_KEY = "vibe-refactor-projects";
 
@@ -45,6 +45,7 @@ export function useProjects() {
       scriptContent: data.scriptContent,
       questions: data.questions || [],
       summary: data.summary,
+      detailedSummary: data.detailedSummary,
       generatedPrompts: data.generatedPrompts,
       currentStep: data.currentStep || 1,
       createdAt: now,
@@ -115,6 +116,12 @@ export function useProjects() {
     }
   }, [activeProjectId, updateProject]);
 
+  const setDetailedSummary = useCallback((detailedSummary: DetailedSummary): void => {
+    if (activeProjectId) {
+      updateProject(activeProjectId, { detailedSummary });
+    }
+  }, [activeProjectId, updateProject]);
+
   const setGeneratedPrompts = useCallback((prompts: PromptBundle[]): void => {
     if (activeProjectId) {
       updateProject(activeProjectId, { generatedPrompts: prompts });
@@ -147,6 +154,7 @@ export function useProjects() {
     setQuestions,
     updateQuestion,
     setSummary,
+    setDetailedSummary,
     setGeneratedPrompts,
     setScriptContent,
     setAgentContext,

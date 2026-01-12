@@ -22,27 +22,85 @@ if (hasOpenAIConfig) {
   }
 }
 
-function generateMockSummary(projectName: string, questions: { text: string; answerText?: string }[]) {
+function generateMockDetailedSummary(projectName: string, questions: { text: string; answerText?: string }[]) {
   const answered = questions.filter((q) => q.answerText);
   return {
-    mvpSummary: `This is a demo summary for "${projectName}". The user provided ${answered.length} answers describing their MVP requirements. Connect to OpenAI to generate real AI-powered summaries.`,
-    assumptions: [
-      "The user has a clear problem to solve",
-      "Target users have been identified",
-      "Core features have been prioritized",
-    ],
-    openQuestions: [
-      "What is the primary user persona?",
-      "What differentiates this from existing solutions?",
-    ],
-    recommendedMvpScope: {
-      include: ["Core user authentication", "Main feature workflow", "Basic dashboard"],
-      defer: ["Advanced analytics", "Social features", "Mobile app"],
+    oneSentenceDefinition: `${projectName} is a demo MVP application that demonstrates the core workflow for ${answered.length} captured requirements.`,
+    mvpScope: {
+      includes: [
+        "Core user authentication",
+        "Main feature workflow", 
+        "Basic dashboard",
+        "Essential data storage",
+      ],
+      excludes: [
+        "Advanced analytics",
+        "Social features",
+        "Mobile app",
+        "Third-party integrations",
+      ],
     },
-    risks: [
-      "Scope creep from adding too many features",
-      "Technical complexity in core features",
+    screens: [
+      {
+        name: "Landing / Login",
+        purpose: "Introduce the app and allow users to sign up or log in",
+        uiElements: ["Hero section with value proposition", "Sign up / Login forms", "CTA button"],
+        whyItWorks: "Provides immediate context and zero-friction entry point",
+      },
+      {
+        name: "Main Dashboard",
+        purpose: "Central hub for accessing core features",
+        uiElements: ["Navigation sidebar", "Main content area", "Action buttons", "Status indicators"],
+        whyItWorks: "Gives users a clear overview and quick access to key actions",
+      },
+      {
+        name: "Feature Workflow",
+        purpose: "Guide users through the primary action",
+        uiElements: ["Step indicators", "Input forms", "Submit button", "Success/error feedback"],
+        whyItWorks: "Structured flow reduces confusion and improves completion rates",
+      },
     ],
+    userFlow: [
+      "User arrives at landing page",
+      "User signs up or logs in",
+      "User sees main dashboard",
+      "User initiates primary action",
+      "User completes workflow",
+      "User views results/confirmation",
+    ],
+    aiArchitecture: {
+      roles: [
+        {
+          name: "Data Agent",
+          responsibilities: ["Fetch and validate user inputs", "Query external data sources"],
+        },
+        {
+          name: "Processing Agent", 
+          responsibilities: ["Apply business logic", "Transform data for display"],
+        },
+      ],
+      notes: "Connect to OpenAI to generate AI architecture specific to your use case.",
+    },
+    dataSources: {
+      mvpSources: ["User-provided inputs", "Local/session storage", "Basic database"],
+      futureSources: ["Third-party APIs", "Analytics services", "External databases"],
+    },
+    legalGuardrails: [
+      "Display clear disclaimers about limitations",
+      "Do not store sensitive data without encryption",
+      "Include terms of service and privacy policy",
+      "Clearly label any AI-generated content as estimates",
+    ],
+    buildPrompt: `Build a web application called "${projectName}" with:
+- User authentication (sign up/login)
+- Main dashboard showing key information
+- Primary workflow for the core feature
+- Clean, modern UI with responsive design
+
+Tech stack: React + Express + PostgreSQL
+Focus on clean code, good UX, and mobile-friendly design.
+Include proper error handling and loading states.`,
+    lastGeneratedAt: new Date().toISOString(),
   };
 }
 
@@ -192,29 +250,57 @@ export async function registerRoutes(
       }
 
       if (!openai) {
-        console.log("OpenAI not configured, returning mock summary");
-        return res.json(generateMockSummary(projectName, questions));
+        console.log("OpenAI not configured, returning mock detailed summary");
+        return res.json(generateMockDetailedSummary(projectName, questions));
       }
 
       const qaText = answeredQuestions
         .map((q, i) => `Q${i + 1}: ${q.text}\nA${i + 1}: ${q.answerText}`)
         .join("\n\n");
 
-      const systemPrompt = `You are an expert product manager and MVP analyst. Your task is to analyze a requirements capture session and produce a structured summary of the MVP understanding.
+      const systemPrompt = `You are an expert product manager and MVP architect. Your task is to analyze a requirements capture session and produce a comprehensive, buildable MVP plan.
 
-Be concise, clear, and actionable. Do not make up details - only include information directly supported by the answers. Flag any missing or unclear information.
+Be specific, actionable, and grounded in the user's answers. Do not make up details - only include information directly supported by the answers. Be thorough but realistic for a 1-2 week MVP build.
 
-Output your response as a valid JSON object with exactly this structure:
+Output your response as a valid JSON object with EXACTLY this structure:
 {
-  "mvpSummary": "A 2-3 paragraph summary of what the MVP is, who it's for, and the core problem it solves",
-  "assumptions": ["List of assumptions made based on the answers"],
-  "openQuestions": ["List of questions that still need answers or clarification"],
-  "recommendedMvpScope": {
-    "include": ["Features/capabilities that should be in the MVP"],
-    "defer": ["Features/capabilities that should be deferred to later versions"]
+  "oneSentenceDefinition": "A single, clear sentence defining what the MVP is and does",
+  "mvpScope": {
+    "includes": ["List of 4-8 features/capabilities that MUST be in the MVP"],
+    "excludes": ["List of 4-8 features explicitly deferred to later versions"]
   },
-  "risks": ["List of potential risks or challenges for this MVP"]
-}`;
+  "screens": [
+    {
+      "name": "Screen Name",
+      "purpose": "What this screen does for the user",
+      "uiElements": ["List of 3-6 specific UI elements on this screen"],
+      "whyItWorks": "Brief explanation of why this design works"
+    }
+  ],
+  "userFlow": ["Step 1: User does X", "Step 2: User sees Y", "...up to 8 steps"],
+  "aiArchitecture": {
+    "roles": [
+      {
+        "name": "Agent/Service Name",
+        "responsibilities": ["What this component does"]
+      }
+    ],
+    "notes": "Brief notes on the AI/backend architecture"
+  },
+  "dataSources": {
+    "mvpSources": ["List of data sources needed for MVP"],
+    "futureSources": ["Optional data sources for later phases"]
+  },
+  "legalGuardrails": ["List of 3-5 legal/safety considerations"],
+  "buildPrompt": "A comprehensive Replit-ready prompt that could be copy/pasted to build this MVP. Include tech stack, core features, UI requirements, and constraints. Make it 150-300 words."
+}
+
+IMPORTANT:
+- Include 3-5 screens that cover the core user journey
+- Make the buildPrompt detailed enough to actually build the app
+- Be specific about UI elements (buttons, forms, displays)
+- Include realistic data sources based on what the user described
+- Only include aiArchitecture if the app involves AI/ML features`;
 
       const userPrompt = `Project: ${projectName}
 
@@ -222,13 +308,13 @@ Here are the questions and answers from the requirements capture session:
 
 ${qaText}
 
-Please analyze this and provide a structured MVP summary.`;
+Please analyze this and produce a comprehensive MVP plan with all sections filled in based on the user's answers.`;
 
       try {
-        console.log("Calling OpenAI for summary generation...");
+        console.log("Calling OpenAI for detailed summary generation...");
         
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("OpenAI timeout")), 45000)
+          setTimeout(() => reject(new Error("OpenAI timeout")), 60000)
         );
         
         const openaiPromise = openai.chat.completions.create({
@@ -238,25 +324,26 @@ Please analyze this and provide a structured MVP summary.`;
             { role: "user", content: userPrompt },
           ],
           response_format: { type: "json_object" },
-          max_completion_tokens: 2048,
+          max_completion_tokens: 4096,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
 
         const content = response.choices[0]?.message?.content;
-        console.log("OpenAI summary response received, content length:", content?.length || 0);
+        console.log("OpenAI detailed summary response received, content length:", content?.length || 0);
         
         if (!content) {
           console.log("Empty OpenAI response, using fallback");
-          return res.json(generateMockSummary(projectName, questions));
+          return res.json(generateMockDetailedSummary(projectName, questions));
         }
 
         const summary = JSON.parse(content);
+        summary.lastGeneratedAt = new Date().toISOString();
         return res.json(summary);
       } catch (aiError) {
         console.error("OpenAI API error:", aiError);
-        console.log("Falling back to mock summary");
-        return res.json(generateMockSummary(projectName, questions));
+        console.log("Falling back to mock detailed summary");
+        return res.json(generateMockDetailedSummary(projectName, questions));
       }
     } catch (error) {
       console.error("Error generating summary:", error);
@@ -270,7 +357,7 @@ Please analyze this and provide a structured MVP summary.`;
   app.post("/api/generatePrompts", async (req, res) => {
     try {
       const validatedData = generatePromptsRequestSchema.parse(req.body);
-      const { projectName, summary, questions } = validatedData;
+      const { projectName, detailedSummary, questions } = validatedData;
 
       if (!openai) {
         console.log("OpenAI not configured, returning mock prompts");
@@ -283,6 +370,11 @@ Please analyze this and provide a structured MVP summary.`;
         .map((q, i) => `Q${i + 1}: ${q.text}\nA${i + 1}: ${q.answerText}`)
         .join("\n\n");
 
+      // Build screen specs from detailed summary
+      const screenSpecs = detailedSummary.screens
+        .map((s) => `## ${s.name}\nPurpose: ${s.purpose}\nUI Elements: ${s.uiElements.join(", ")}`)
+        .join("\n\n");
+
       const systemPrompt = `You are an expert software architect and technical writer. Your task is to generate a comprehensive "Build Pack" - a set of structured prompts that can be used to guide an AI assistant in building an MVP.
 
 IMPORTANT RULES:
@@ -291,6 +383,7 @@ IMPORTANT RULES:
 3. Focus on user flows, screens, actions, and acceptance criteria
 4. Be specific about UI elements and interactions
 5. Include edge cases and validation requirements
+6. The user has already reviewed and edited the MVP plan, so respect their decisions
 
 Output your response as a valid JSON object with this structure:
 {
@@ -318,14 +411,28 @@ The categories MUST include:
 
       const userPrompt = `Project: ${projectName}
 
-MVP Summary:
-${summary.mvpSummary}
+MVP Definition:
+${detailedSummary.oneSentenceDefinition}
 
 Features to Include:
-${summary.recommendedMvpScope.include.map((f) => `- ${f}`).join("\n")}
+${detailedSummary.mvpScope.includes.map((f: string) => `- ${f}`).join("\n")}
 
 Features to Defer:
-${summary.recommendedMvpScope.defer.map((f) => `- ${f}`).join("\n")}
+${detailedSummary.mvpScope.excludes.map((f: string) => `- ${f}`).join("\n")}
+
+Screens:
+${screenSpecs}
+
+User Flow:
+${detailedSummary.userFlow.map((step: string, i: number) => `${i + 1}. ${step}`).join("\n")}
+
+Data Sources (MVP): ${detailedSummary.dataSources.mvpSources.join(", ")}
+
+Legal Guardrails:
+${detailedSummary.legalGuardrails.map((g: string) => `- ${g}`).join("\n")}
+
+User's Build Prompt:
+${detailedSummary.buildPrompt}
 
 Original Q&A:
 ${qaText}

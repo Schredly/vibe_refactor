@@ -13,7 +13,55 @@ export const questionSchema = z.object({
 export type Question = z.infer<typeof questionSchema>;
 export type InsertQuestion = Omit<Question, "id">;
 
-// Summary schema - MVP understanding after LLM analysis
+// Screen definition for detailed summary
+export const screenDefinitionSchema = z.object({
+  name: z.string(),
+  purpose: z.string(),
+  uiElements: z.array(z.string()),
+  whyItWorks: z.string().optional(),
+});
+
+export type ScreenDefinition = z.infer<typeof screenDefinitionSchema>;
+
+// AI/Agent architecture definition
+export const agentArchitectureSchema = z.object({
+  roles: z.array(z.object({
+    name: z.string(),
+    responsibilities: z.array(z.string()),
+  })),
+  notes: z.string().optional(),
+});
+
+export type AgentArchitecture = z.infer<typeof agentArchitectureSchema>;
+
+// Data sources definition
+export const dataSourcesSchema = z.object({
+  mvpSources: z.array(z.string()),
+  futureSources: z.array(z.string()).optional(),
+});
+
+export type DataSources = z.infer<typeof dataSourcesSchema>;
+
+// Detailed summary schema - comprehensive MVP plan
+export const detailedSummarySchema = z.object({
+  oneSentenceDefinition: z.string(),
+  mvpScope: z.object({
+    includes: z.array(z.string()),
+    excludes: z.array(z.string()),
+  }),
+  screens: z.array(screenDefinitionSchema),
+  userFlow: z.array(z.string()),
+  aiArchitecture: agentArchitectureSchema.optional(),
+  dataSources: dataSourcesSchema,
+  legalGuardrails: z.array(z.string()),
+  buildPrompt: z.string(),
+  agreed: z.boolean().optional(),
+  lastGeneratedAt: z.string().optional(),
+});
+
+export type DetailedSummary = z.infer<typeof detailedSummarySchema>;
+
+// Legacy summary schema - kept for backward compatibility
 export const summarySchema = z.object({
   mvpSummary: z.string(),
   assumptions: z.array(z.string()),
@@ -55,7 +103,8 @@ export const projectSchema = z.object({
   scriptContent: z.string().optional(),
   questions: z.array(questionSchema).optional(),
   agentContext: agentContextSchema.optional(),
-  summary: summarySchema.optional(),
+  summary: summarySchema.optional(), // Legacy - kept for backward compatibility
+  detailedSummary: detailedSummarySchema.optional(), // New detailed summary
   generatedPrompts: z.array(promptBundleSchema).optional(),
   currentStep: z.number().default(1),
   createdAt: z.string(),
@@ -151,7 +200,7 @@ export type ResearchExamplesResponse = z.infer<typeof researchExamplesResponseSc
 
 export const generatePromptsRequestSchema = z.object({
   projectName: z.string(),
-  summary: summarySchema,
+  detailedSummary: detailedSummarySchema,
   questions: z.array(
     z.object({
       text: z.string(),
@@ -161,6 +210,10 @@ export const generatePromptsRequestSchema = z.object({
 });
 
 export type GeneratePromptsRequest = z.infer<typeof generatePromptsRequestSchema>;
+
+// Detailed summarize response type
+export const detailedSummarizeResponseSchema = detailedSummarySchema;
+export type DetailedSummarizeResponse = DetailedSummary;
 
 // Wizard steps
 export const WIZARD_STEPS = [

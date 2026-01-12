@@ -1,0 +1,307 @@
+Below is a clean, buildable MVP plan you could hand directly to Replit (or a dev) and realistically ship in ~1–2 weeks.
+
+I’ll structure this as:
+
+MVP One-Sentence Definition
+
+What the MVP does (and does NOT do)
+
+3-Screen MVP App Design
+
+End-to-End User Flow
+
+AI / Agent Architecture (simple, MVP-safe)
+
+Data Sources (MVP-realistic)
+
+Legal / Safety Guardrails
+
+Replit-Ready Build Prompt (copy/paste)
+
+1. MVP — One-Sentence Definition
+
+An AI-powered investing copilot that lets individual investors ask a question (text or voice) and instantly receive a synthesized investment thesis with probabilities, charts, and actionable scenarios—without needing multiple tools.
+
+2. MVP Scope (Very Important)
+MVP INCLUDES
+
+✅ Natural language prompt (text first, voice optional later)
+✅ Single query → structured investment output
+✅ Scenario analysis (Base / Bull / Bear)
+✅ Assigned probabilities (clearly labeled as estimates)
+✅ Simple charts (price history + projected ranges)
+✅ Source transparency (what data was used)
+✅ Save the thesis (local/session-based)
+
+MVP EXCLUDES
+
+❌ Auto-trading / brokerage execution
+❌ Real-money actions
+❌ Personalized fiduciary advice
+❌ Guaranteed predictions
+❌ Paid/proprietary data (Phase 2)
+
+3. The 3 MVP Screens
+
+This maps perfectly to what you described.
+
+Screen 1 — Ask / Explore (The Hook)
+
+Purpose: Let the user “vibe code” their investment question.
+
+UI Elements
+
+Large input box (text)
+
+Example prompts:
+
+“How could I profit from instability in Venezuela?”
+
+“Is Chevron a good 3–5 year investment?”
+
+“Short-term vs long-term oil plays?”
+
+Optional 🎤 Voice input (Phase 1.5)
+
+“Analyze” button
+
+Why this works
+
+Zero friction
+
+Matches your “talk it in / text it in” vision
+
+Immediately replaces 5–10 tools
+
+Screen 2 — Thesis & Scenarios (Core Value)
+
+Purpose: Deliver the synthesized intelligence.
+
+Sections
+
+Plain-English Thesis
+
+5–8 bullets
+
+What’s happening
+
+Why it matters
+
+What could go wrong
+
+Scenarios with Probabilities
+
+Bull Case (30%)
+
+Base Case (45%)
+
+Bear Case (25%)
+(probabilities must sum to 100%)
+
+Key Metrics
+
+Beta
+
+Volatility
+
+Market cap
+
+Float (if applicable)
+
+Risk notes (manipulation, liquidity)
+
+Timeline
+
+Short-term (0–6 months)
+
+Medium (6–24 months)
+
+Long-term (2–5 years)
+
+Why this works
+
+Advisor-like output
+
+Clear, decisive
+
+Avoids analysis paralysis
+
+Screen 3 — Charts & Credibility
+
+Purpose: Build conviction and trust.
+
+Charts
+
+Price history (12–60 months)
+
+Projected range bands (shaded)
+
+Volatility overlay
+
+Credibility Panel
+
+Data sources used (Yahoo Finance, news APIs, etc.)
+
+Confidence level (High / Medium / Low)
+
+Disclosure banner:
+
+“Probabilistic analysis. Not financial advice.”
+
+Optional (still MVP-safe)
+
+“Save Thesis”
+
+“Set Reminder” (fake button / coming soon)
+
+4. End-to-End User Flow
+Open App
+  ↓
+Enter question (text)
+  ↓
+AI analyzes → pulls data → synthesizes
+  ↓
+Thesis + scenarios + probabilities
+  ↓
+Charts + credibility
+  ↓
+User decides independently
+
+
+No accounts required for MVP.
+
+5. AI / Agent Architecture (Simple but Powerful)
+
+You do not need complex agent orchestration yet.
+
+MVP Agent Roles (Behind the Scenes)
+
+Agent 1 — Research Agent
+
+Pulls public data:
+
+Price history
+
+News summaries
+
+Macro context
+
+Agent 2 — Synthesis Agent
+
+Builds thesis
+
+Creates scenarios
+
+Assigns probabilities
+
+Flags uncertainty
+
+Agent 3 — Presentation Agent
+
+Formats output
+
+Produces chart-ready data
+
+Generates UI-friendly JSON
+
+All of this can be a single GPT call with structured prompting in MVP.
+
+6. Data Sources (MVP-Friendly)
+
+Start with free + public:
+
+Yahoo Finance (price, beta, market cap)
+
+Public news APIs or scraped summaries
+
+General macro knowledge (LLM-native)
+
+Phase 2
+
+Paid financial APIs
+
+Analyst track records
+
+Investor performance data
+
+7. Legal / Safety Guardrails (Critical)
+
+First-run modal (checkbox required):
+
+“This application provides probabilistic analysis based on public information.
+It is not financial advice.
+You are solely responsible for your investment decisions.”
+
+Always show
+
+“Probabilities are estimates”
+
+“Data may be incomplete”
+
+“No future liability”
+
+This aligns exactly with your philosophy.
+
+8. Replit-Ready MVP Build Prompt (Copy/Paste)
+
+You can drop this directly into Replit AI:
+
+Build a browser-based MVP web app using React and a simple backend.
+
+App purpose:
+An AI-powered investing copilot that lets users enter a natural language investing question and receive a structured investment thesis with scenarios, probabilities, and charts.
+
+Core requirements:
+- Screen 1: Text input for investment questions with example prompts
+- Screen 2: AI-generated thesis with:
+  - Plain English summary
+  - Bull/Base/Bear scenarios with probabilities
+  - Key metrics (beta, volatility, risk notes)
+  - Timeline (short/medium/long term)
+- Screen 3: Charts:
+  - Historical price chart
+  - Projected probability ranges
+  - Data source disclosure
+
+AI behavior:
+- Use public information only
+- Assign probabilities clearly labeled as estimates
+- Acknowledge uncertainty and data gaps
+- Never present advice as guaranteed outcomes
+
+Tech constraints:
+- Use mock or public financial data for MVP
+- No user accounts
+- No trading or execution
+- Include a legal disclaimer banner on all analysis screens
+
+Output:
+- Clean, mobile-friendly UI
+- Structured JSON responses from AI
+- Simple chart visualizations
+
+Why This MVP Is Strong
+
+✔ Directly grounded in the interview
+
+✔ Delivers real value immediately
+
+✔ Avoids regulatory landmines
+
+✔ Perfect for demoing to:
+
+Investors
+
+Advisors
+
+Replit team
+
+✔ Easily extensible into:
+
+Agents
+
+Reminders
+
+Track records
+
+Auto-execution (much later)
