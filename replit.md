@@ -50,9 +50,12 @@ shared/
 
 ### 2. Capture Answers (Step 2)
 - Voice recording via Web Speech API
-- Keyboard shortcuts: R = Record/Stop, N = Next question
+- Keyboard shortcuts: R = Record/Stop, P = Pause/Resume, N = Next question
+- Pause and resume recording mid-sentence
+- Continue Recording to append to existing answers
 - Real-time transcript display
 - Manual text editing fallback
+- **Agent Assist**: AI-powered suggestions to improve answer specificity
 
 ### 3. Review & Summarize (Step 3)
 - AI-generated MVP summary via OpenAI
@@ -83,6 +86,20 @@ Generates Build Pack prompts.
 ```typescript
 Request: { projectName: string, summary: Summary, questions: Question[] }
 Response: { prompts: PromptBundle[] }
+```
+
+### POST /api/generateContext
+Generates context summary when questions are loaded (used by Agent Assist).
+```typescript
+Request: { projectName: string, questions: { text: string }[] }
+Response: { systemPrompt: string, generatedAt: string }
+```
+
+### POST /api/agentAssist
+Evaluates answer specificity and provides suggestions.
+```typescript
+Request: { projectName: string, contextSummary: string, currentQuestion: string, userAnswer: string }
+Response: { isSpecificEnough: boolean, suggestions: string[], improvementAreas?: string[] }
 ```
 
 ### Error Handling

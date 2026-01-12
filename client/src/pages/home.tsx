@@ -10,7 +10,6 @@ import { GenerateBuildPackStep } from "@/components/steps/generate-build-pack-st
 import { CreateAppStep } from "@/components/steps/create-app-step";
 import { useProjects } from "@/hooks/use-projects";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Question, AgentContext } from "@shared/schema";
 
@@ -32,8 +31,6 @@ export default function Home() {
     setScriptContent,
     setAgentContext,
   } = useProjects();
-
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading && projects.length === 0) {
