@@ -43,9 +43,9 @@
   --chart-3: 210 85% 50%;
   --chart-4: 180 70% 42%;
   --chart-5: 340 82% 52%;
-  --font-sans: Open Sans, sans-serif;
+  --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
+  --font-mono: JetBrains Mono, Menlo, monospace;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(240 6% 10% / 0.02);
   --shadow-xs: 0px 2px 0px 0px hsl(240 6% 10% / 0.03);
@@ -196,6 +196,18 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
+  @keyframes pulse-recording {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-pulse-recording {
+    animation: pulse-recording 1.5s ease-in-out infinite;
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {
