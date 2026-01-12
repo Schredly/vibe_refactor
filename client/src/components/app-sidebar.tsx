@@ -147,15 +147,15 @@ export function AppSidebar({
                         </Button>
                       </div>
                     ) : (
-                      <SidebarMenuButton
+                      <div
                         className={cn(
-                          "w-full justify-between group",
+                          "w-full flex items-center justify-between group px-3 py-2 rounded-md cursor-pointer hover-elevate",
                           activeProjectId === project.id && "bg-sidebar-accent"
                         )}
                         onClick={() => onSelectProject(project.id)}
                         data-testid={`button-project-${project.id}`}
                       >
-                        <span className="truncate">{project.name}</span>
+                        <span className="truncate text-sm">{project.name}</span>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
@@ -201,7 +201,7 @@ export function AppSidebar({
                             </AlertDialogContent>
                           </AlertDialog>
                         </div>
-                      </SidebarMenuButton>
+                      </div>
                     )}
                   </SidebarMenuItem>
                 ))
