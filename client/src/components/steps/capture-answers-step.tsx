@@ -59,6 +59,8 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
   const [assistLoading, setAssistLoading] = useState<string | null>(null);
   const [assistResults, setAssistResults] = useState<Map<string, AgentAssistResponse>>(new Map());
   const [cleanLoading, setCleanLoading] = useState<string | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<number>(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const activeQuestion = questions[activeQuestionIndex];
@@ -77,6 +79,7 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     stopRecording,
     resetTranscript,
     setInitialTranscript,
+    setInsertAtPosition,
   } = useSpeechTranscription({
     onTranscriptChange: (text) => {
       if (activeQuestion) {
@@ -101,6 +104,27 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
       startRecording(false);
     }
   }, [questions, startRecording, setInitialTranscript]);
+
+  const handleRecordAtCursor = useCallback((questionIndex: number) => {
+    setActiveQuestionIndex(questionIndex);
+    const question = questions[questionIndex];
+    
+    // Get cursor position from textarea ref or use stored position
+    const position = textareaRef.current?.selectionStart ?? cursorPosition;
+    const text = editText || question.answerText || "";
+    
+    // Save the edit text before switching modes
+    if (isEditing) {
+      onUpdateQuestion(question.id, { answerText: editText });
+    }
+    
+    setIsEditing(null);
+    setExpandedQuestions(prev => new Set(prev).add(question.id));
+    
+    // Set up insertion at cursor position
+    setInsertAtPosition(text, position);
+    startRecording(true);
+  }, [questions, startRecording, setInsertAtPosition, cursorPosition, editText, isEditing, onUpdateQuestion]);
 
   const handlePauseRecording = useCallback(() => {
     pauseRecording();
@@ -524,16 +548,34 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                             {isQuestionEditing ? (
                               <div className="space-y-3">
                                 <Textarea
+                                  ref={textareaRef}
                                   value={editText}
                                   onChange={(e) => setEditText(e.target.value)}
+                                  onSelect={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
+                                  onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
+                                  onKeyUp={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
                                   className="min-h-[100px] bg-background"
                                   placeholder="Type your answer here..."
                                   data-testid={`textarea-answer-${question.id}`}
                                 />
-                                <div className="flex items-center gap-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Place your cursor where you want to insert new speech, then click "Continue Recording"
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Button size="sm" onClick={() => handleSaveEdit(question.id)} data-testid={`button-save-answer-${question.id}`}>
                                     <Check className="w-4 h-4 mr-2" />
                                     Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2"
+                                    onClick={() => handleRecordAtCursor(index)}
+                                    disabled={!isSupported}
+                                    data-testid={`button-continue-recording-edit-${question.id}`}
+                                  >
+                                    <Mic className="w-4 h-4" />
+                                    Continue Recording
                                   </Button>
                                   <Button
                                     size="sm"

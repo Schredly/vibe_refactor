@@ -62,6 +62,9 @@ export function useSpeechTranscription(options: UseSpeechTranscriptionOptions = 
   const shouldRestartRef = useRef(false);
   const transcriptRef = useRef("");
   const onTranscriptChangeRef = useRef(onTranscriptChange);
+  const insertPositionRef = useRef<number | null>(null);
+  const textBeforeInsertRef = useRef("");
+  const textAfterInsertRef = useRef("");
 
   useEffect(() => {
     onTranscriptChangeRef.current = onTranscriptChange;
@@ -93,9 +96,17 @@ export function useSpeechTranscription(options: UseSpeechTranscriptionOptions = 
       }
 
       if (finalText) {
-        transcriptRef.current += finalText;
-        setTranscript(transcriptRef.current);
-        onTranscriptChangeRef.current?.(transcriptRef.current);
+        // If inserting at a position, combine before + new + after
+        if (insertPositionRef.current !== null) {
+          transcriptRef.current = textBeforeInsertRef.current + transcriptRef.current.slice(textBeforeInsertRef.current.length) + finalText;
+          const fullText = transcriptRef.current + textAfterInsertRef.current;
+          setTranscript(fullText);
+          onTranscriptChangeRef.current?.(fullText);
+        } else {
+          transcriptRef.current += finalText;
+          setTranscript(transcriptRef.current);
+          onTranscriptChangeRef.current?.(transcriptRef.current);
+        }
       }
 
       setInterimTranscript(interimText);
@@ -210,6 +221,20 @@ export function useSpeechTranscription(options: UseSpeechTranscriptionOptions = 
   const setInitialTranscript = useCallback((text: string) => {
     transcriptRef.current = text;
     setTranscript(text);
+    insertPositionRef.current = null;
+    textBeforeInsertRef.current = "";
+    textAfterInsertRef.current = "";
+  }, []);
+
+  const setInsertAtPosition = useCallback((fullText: string, cursorPosition: number) => {
+    const before = fullText.slice(0, cursorPosition);
+    const after = fullText.slice(cursorPosition);
+    textBeforeInsertRef.current = before;
+    textAfterInsertRef.current = after;
+    insertPositionRef.current = cursorPosition;
+    // Start with just the "before" part - new speech will be added after it
+    transcriptRef.current = before;
+    setTranscript(fullText);
   }, []);
 
   return {
@@ -225,6 +250,7 @@ export function useSpeechTranscription(options: UseSpeechTranscriptionOptions = 
     stopRecording,
     resetTranscript,
     setInitialTranscript,
+    setInsertAtPosition,
     fullTranscript: transcript + (interimTranscript ? " " + interimTranscript : ""),
   };
 }
