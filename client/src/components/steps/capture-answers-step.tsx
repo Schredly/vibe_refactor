@@ -105,26 +105,24 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     }
   }, [questions, startRecording, setInitialTranscript]);
 
+  const [isRecordingInEdit, setIsRecordingInEdit] = useState(false);
+
   const handleRecordAtCursor = useCallback((questionIndex: number) => {
     setActiveQuestionIndex(questionIndex);
     const question = questions[questionIndex];
     
-    // Get cursor position from textarea ref or use stored position
+    // Get cursor position from textarea ref
     const position = textareaRef.current?.selectionStart ?? cursorPosition;
     const text = editText || question.answerText || "";
     
-    // Save the edit text before switching modes
-    if (isEditing) {
-      onUpdateQuestion(question.id, { answerText: editText });
-    }
-    
-    setIsEditing(null);
+    // Keep edit mode open and mark that we're recording into it
+    setIsRecordingInEdit(true);
     setExpandedQuestions(prev => new Set(prev).add(question.id));
     
     // Set up insertion at cursor position
     setInsertAtPosition(text, position);
     startRecording(true);
-  }, [questions, startRecording, setInsertAtPosition, cursorPosition, editText, isEditing, onUpdateQuestion]);
+  }, [questions, startRecording, setInsertAtPosition, cursorPosition, editText]);
 
   const handlePauseRecording = useCallback(() => {
     pauseRecording();
@@ -142,7 +140,12 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     if (activeQuestion && transcript) {
       onUpdateQuestion(activeQuestion.id, { answerText: transcript });
     }
-  }, [stopRecording, activeQuestion, transcript, onUpdateQuestion]);
+    // If we were recording in edit mode, update editText and reset flag
+    if (isRecordingInEdit) {
+      setEditText(transcript);
+      setIsRecordingInEdit(false);
+    }
+  }, [stopRecording, activeQuestion, transcript, onUpdateQuestion, isRecordingInEdit]);
 
   const toggleExpanded = useCallback((questionId: string) => {
     setExpandedQuestions(prev => {
@@ -547,47 +550,83 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                           <div className="p-4 rounded-lg bg-muted/50 min-h-[100px]">
                             {isQuestionEditing ? (
                               <div className="space-y-3">
-                                <Textarea
-                                  ref={textareaRef}
-                                  value={editText}
-                                  onChange={(e) => setEditText(e.target.value)}
-                                  onSelect={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
-                                  onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
-                                  onKeyUp={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
-                                  className="min-h-[100px] bg-background"
-                                  placeholder="Type your answer here..."
-                                  data-testid={`textarea-answer-${question.id}`}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  Place your cursor where you want to insert new speech, then click "Continue Recording"
-                                </p>
+                                {isRecordingInEdit && isQuestionRecording ? (
+                                  <>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
+                                      <span className="text-sm font-medium text-destructive">Recording at cursor...</span>
+                                    </div>
+                                    <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 min-h-[100px]">
+                                      <p className="font-mono text-sm whitespace-pre-wrap">
+                                        {fullTranscript || "Listening... Speak now."}
+                                      </p>
+                                      {interimTranscript && (
+                                        <p className="font-mono text-sm text-muted-foreground italic mt-1">
+                                          {interimTranscript}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Textarea
+                                      ref={textareaRef}
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      onSelect={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
+                                      onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
+                                      onKeyUp={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
+                                      className="min-h-[100px] bg-background"
+                                      placeholder="Type your answer here..."
+                                      data-testid={`textarea-answer-${question.id}`}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                      Place your cursor where you want to insert new speech, then click "Continue Recording"
+                                    </p>
+                                  </>
+                                )}
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <Button size="sm" onClick={() => handleSaveEdit(question.id)} data-testid={`button-save-answer-${question.id}`}>
-                                    <Check className="w-4 h-4 mr-2" />
-                                    Save
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="gap-2"
-                                    onClick={() => handleRecordAtCursor(index)}
-                                    disabled={!isSupported}
-                                    data-testid={`button-continue-recording-edit-${question.id}`}
-                                  >
-                                    <Mic className="w-4 h-4" />
-                                    Continue Recording
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setIsEditing(null);
-                                      setEditText("");
-                                    }}
-                                    data-testid={`button-cancel-edit-${question.id}`}
-                                  >
-                                    Cancel
-                                  </Button>
+                                  {isRecordingInEdit && isQuestionRecording ? (
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="gap-2"
+                                      onClick={handleStopRecording}
+                                      data-testid={`button-stop-edit-${question.id}`}
+                                    >
+                                      <Square className="w-4 h-4" />
+                                      Stop Recording
+                                    </Button>
+                                  ) : (
+                                    <>
+                                      <Button size="sm" onClick={() => handleSaveEdit(question.id)} data-testid={`button-save-answer-${question.id}`}>
+                                        <Check className="w-4 h-4 mr-2" />
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="gap-2"
+                                        onClick={() => handleRecordAtCursor(index)}
+                                        disabled={!isSupported}
+                                        data-testid={`button-continue-recording-edit-${question.id}`}
+                                      >
+                                        <Mic className="w-4 h-4" />
+                                        Continue Recording
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setIsEditing(null);
+                                          setEditText("");
+                                        }}
+                                        data-testid={`button-cancel-edit-${question.id}`}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             ) : (isQuestionRecording || isQuestionPaused) ? (
