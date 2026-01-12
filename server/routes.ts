@@ -109,65 +109,179 @@ function generateMockPrompts(projectName: string) {
     prompts: [
       {
         id: "1",
-        category: "Product Overview",
-        title: "MVP Summary",
-        content: `# ${projectName} MVP\n\nThis is a demo Build Pack. Connect to OpenAI to generate real AI-powered prompts tailored to your requirements.\n\n## Core Features\n- User authentication\n- Main workflow\n- Dashboard`,
+        sequence: 1,
+        category: "Project Setup",
+        title: "Project Setup + Core UX Skeleton",
+        roles: ["User"],
+        content: `Build a browser-based MVP web app called "${projectName}".
+
+**Core roles**
+* **User (authenticated)**: full access to core features
+
+**MVP screens (3-4)**
+1. **Landing / Login**
+2. **Main Dashboard**
+3. **Primary Feature Page**
+4. **Settings/Profile** (optional)
+
+**Global UI requirements**
+* Responsive, mobile-friendly layout
+* Clear navigation (sidebar or top nav)
+* Consistent components for tables, forms, status chips, and empty states
+* Top-right user menu with "Logout"
+
+**Auth**
+* Implement user login + session
+* Block all routes unless logged in`,
+        deliverable: "App runs end-to-end with routing, placeholder pages for each screen, and working login/logout.",
         collapsedByDefault: false,
       },
       {
         id: "2",
-        category: "Primary User Flows",
-        title: "Main User Journey",
-        content: `# User Flow\n\n1. User signs up/logs in\n2. User accesses main feature\n3. User completes primary action\n4. User views results on dashboard`,
+        sequence: 2,
+        category: "Dashboard",
+        title: "Dashboard + Core Metrics",
+        roles: ["User"],
+        content: `Implement the **Main Dashboard** with:
+
+* Summary cards showing key metrics
+* Filter bar with relevant options
+* Recent activity or items table
+* Primary CTA button for main action
+
+**Deliverable**
+Filters work and update counts + table. Main action opens relevant workflow.`,
+        deliverable: "Dashboard shows real-time data with working filters and navigation to main features.",
         collapsedByDefault: true,
       },
       {
         id: "3",
-        category: "UI Spec",
-        title: "Screen Layouts",
-        content: `# UI Screens\n\n## Landing Page\n- Hero section with value proposition\n- CTA button\n\n## Dashboard\n- Navigation sidebar\n- Main content area\n- Action buttons`,
+        sequence: 3,
+        category: "Data Management",
+        title: "Foundational Data (CRUD)",
+        roles: ["User"],
+        content: `Create data management screens with tabs or sections for core entities.
+
+Each section:
+* Table with key fields + actions (View/Edit/Delete)
+* "New" button to add record
+* Simple validation and friendly errors
+
+**Deliverable**
+Full CRUD for each core entity type.`,
+        deliverable: "Full CRUD operations work for all core data entities with validation.",
         collapsedByDefault: true,
       },
       {
         id: "4",
-        category: "Backend/API Spec",
-        title: "API Endpoints",
-        content: `# API Endpoints\n\n- POST /api/auth/login\n- POST /api/auth/register\n- GET /api/user/profile\n- POST /api/actions/create`,
+        sequence: 4,
+        category: "Core Feature",
+        title: "Primary Feature Workflow",
+        roles: ["User"],
+        content: `Implement the primary feature workflow:
+
+* List view with search + filters
+* Create/edit form with required fields
+* Status flow and transitions
+* Activity timeline showing changes
+
+**Deliverable**
+End-to-end workflow works with full auditability.`,
+        deliverable: "Primary workflow is complete with status management and history tracking.",
         collapsedByDefault: true,
       },
       {
         id: "5",
-        category: "Storage",
-        title: "Data Requirements",
-        content: `# Storage Requirements\n\n- User profiles (name, email, preferences)\n- User actions/data\n- Session management`,
+        sequence: 5,
+        category: "Integrations",
+        title: "External Integrations (if applicable)",
+        roles: ["User"],
+        content: `Add any required integrations:
+
+* Email notifications for key events
+* External API connections
+* File uploads/attachments
+
+**Deliverable**
+Integrations work in development environment.`,
+        deliverable: "All integrations are functional with proper error handling.",
         collapsedByDefault: true,
       },
       {
         id: "6",
-        category: "Edge Cases & Validation",
-        title: "Error Handling",
-        content: `# Edge Cases\n\n- Invalid form inputs\n- Network errors\n- Unauthorized access\n- Empty states`,
+        sequence: 6,
+        category: "Reporting",
+        title: "Basic Reporting + Analytics",
+        roles: ["User"],
+        content: `Add basic reporting:
+
+* Key metrics by category/status
+* Date range filtering
+* Export capability (optional)
+
+**Deliverable**
+Reports update based on filters and remain fast.`,
+        deliverable: "Reports show accurate data with working filters.",
         collapsedByDefault: true,
       },
       {
         id: "7",
-        category: "Acceptance Criteria",
-        title: "Success Metrics",
-        content: `# Acceptance Criteria\n\n- User can complete full workflow\n- All forms validate correctly\n- Error messages are helpful\n- Loading states are shown`,
+        sequence: 7,
+        category: "Security",
+        title: "Guardrails + Access Control",
+        roles: ["User", "Admin"],
+        content: `Implement security guardrails:
+
+**Access control**
+* Users can only see their own data
+* Proper permission checks
+
+**Data protection**
+* Store only necessary info
+* Log key changes for auditability
+
+**Legal/disclaimer**
+* Add terms/disclaimer visible in app`,
+        deliverable: "Clear permission checks in code paths + UI. Basic terms visible.",
         collapsedByDefault: true,
       },
       {
         id: "8",
-        category: "V1 Cut List",
-        title: "Out of Scope",
-        content: `# Deferred Features\n\n- Advanced analytics\n- Social sharing\n- Mobile app\n- Third-party integrations`,
+        sequence: 8,
+        category: "Polish",
+        title: "Polish + QA Checklist",
+        roles: ["User"],
+        content: `Finalize usability and ensure full flow works:
+
+**UX polish**
+* Confirm dialogs for delete
+* Clear empty states + "create first X" nudges
+* Inline validation messages
+* Consistent formatting for dates/currency
+* Status badges are visually distinct
+
+**Required end-to-end flow**
+1. User logs in
+2. User creates/manages data
+3. User completes primary workflow
+4. Dashboard shows updated metrics`,
+        deliverable: "README section describing how to run and demo the full flow.",
         collapsedByDefault: true,
       },
       {
-        id: "9",
-        category: "Replit Master Prompt",
+        id: "master",
+        sequence: 99,
+        category: "Master Prompt",
         title: "Complete Build Prompt",
-        content: `Build a web application called "${projectName}" with user authentication, a main dashboard, and core workflow features. Use React + Express + PostgreSQL. Focus on clean UI and good UX.`,
+        roles: ["All"],
+        content: `Build a web application called "${projectName}" with:
+- User authentication (sign up/login)
+- Main dashboard showing key information
+- Primary workflow for the core feature
+- Clean, modern UI with responsive design
+
+This is a demo Build Pack. Connect to OpenAI to generate detailed prompts tailored to your specific requirements.`,
+        deliverable: "Complete MVP application ready for user testing.",
         collapsedByDefault: false,
       },
     ],
@@ -375,39 +489,56 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         .map((s) => `## ${s.name}\nPurpose: ${s.purpose}\nUI Elements: ${s.uiElements.join(", ")}`)
         .join("\n\n");
 
-      const systemPrompt = `You are an expert software architect and technical writer. Your task is to generate a comprehensive "Build Pack" - a set of structured prompts that can be used to guide an AI assistant in building an MVP.
+      // Build AI architecture info if present
+      const aiArchInfo = detailedSummary.aiArchitecture 
+        ? `\nAI/Agent Architecture:\n${detailedSummary.aiArchitecture.roles.map((r: { name: string; responsibilities: string[] }) => `- ${r.name}: ${r.responsibilities.join(", ")}`).join("\n")}`
+        : "";
 
-IMPORTANT RULES:
-1. Do NOT produce detailed database schemas or ERD diagrams
-2. Keep storage requirements high-level (e.g., "store user profile with name, email, preferences")
-3. Focus on user flows, screens, actions, and acceptance criteria
-4. Be specific about UI elements and interactions
-5. Include edge cases and validation requirements
-6. The user has already reviewed and edited the MVP plan, so respect their decisions
+      const systemPrompt = `You are an expert software architect generating a "Build Pack" - a set of 8-10 sequential prompts that can be fed to Replit Agent to build an MVP incrementally.
 
-Output your response as a valid JSON object with this structure:
+CRITICAL FORMAT REQUIREMENTS:
+1. Generate 8-10 sequential prompts numbered 1 through N
+2. Each prompt should be SELF-CONTAINED and ACTIONABLE - it tells the AI exactly what to build in that step
+3. Use DETAILED BULLET POINTS with specific requirements (field names, validation rules, UI elements)
+4. Include **bold** section headers within each prompt
+5. End each prompt with a clear **Deliverable** section stating what should work after that prompt
+6. Do NOT produce detailed database schemas - keep storage requirements high-level
+7. Be SPECIFIC: name actual screens, buttons, fields, and actions
+
+PROMPT SEQUENCE STRUCTURE (adapt based on the actual MVP):
+1. Project Setup + Core UX Skeleton (auth, routing, page shells)
+2. Main Dashboard (metrics, filters, key actions)
+3. Foundational Data CRUD (core entities management)
+4. Primary Feature Workflow (main user journey)
+5. Secondary Features (additional screens/workflows)
+6. Integrations (notifications, external APIs if needed)
+7. Reporting/Analytics (if applicable)
+8. Security + Access Control + Guardrails
+9. Polish + QA Checklist (end-to-end flow verification)
+10. Master Prompt (consolidated single prompt)
+
+EACH PROMPT MUST INCLUDE:
+- **Core roles** section defining user types and their access
+- Specific **screen names** and their purpose
+- **UI requirements** with actual element names (buttons, forms, tables)
+- **Field specifications** where relevant (required/optional, validation)
+- **Deliverable** section at the end
+
+Output as JSON:
 {
   "prompts": [
     {
-      "id": "unique-id",
-      "category": "Category Name",
-      "title": "Prompt Title",
-      "content": "Detailed prompt content in markdown",
-      "collapsedByDefault": true
+      "id": "1",
+      "sequence": 1,
+      "category": "Project Setup",
+      "title": "Project Setup + Core UX Skeleton",
+      "roles": ["User", "Admin"],
+      "content": "Full detailed prompt text with **bold headers**, bullet points, field specs...",
+      "deliverable": "What should work after this prompt is completed",
+      "collapsedByDefault": false
     }
   ]
-}
-
-The categories MUST include:
-1. Product Overview - One-page summary of the MVP
-2. Primary User Flows - Step-by-step user journeys
-3. UI Spec - Screens, components, layouts
-4. Backend/API Spec - Endpoints and their responsibilities (high-level)
-5. Storage - High-level data requirements (NOT detailed schemas)
-6. Edge Cases & Validation - Error handling, input validation
-7. Acceptance Criteria - Testable success criteria
-8. V1 Cut List - What is explicitly out of scope
-9. Replit Master Prompt - A single consolidated prompt for Replit Agent`;
+}`;
 
       const userPrompt = `Project: ${projectName}
 
@@ -417,7 +548,7 @@ ${detailedSummary.oneSentenceDefinition}
 Features to Include:
 ${detailedSummary.mvpScope.includes.map((f: string) => `- ${f}`).join("\n")}
 
-Features to Defer:
+Features to Defer (V1 Cut List):
 ${detailedSummary.mvpScope.excludes.map((f: string) => `- ${f}`).join("\n")}
 
 Screens:
@@ -425,25 +556,26 @@ ${screenSpecs}
 
 User Flow:
 ${detailedSummary.userFlow.map((step: string, i: number) => `${i + 1}. ${step}`).join("\n")}
+${aiArchInfo}
 
 Data Sources (MVP): ${detailedSummary.dataSources.mvpSources.join(", ")}
 
 Legal Guardrails:
 ${detailedSummary.legalGuardrails.map((g: string) => `- ${g}`).join("\n")}
 
-User's Build Prompt:
+User's Build Prompt (use as reference):
 ${detailedSummary.buildPrompt}
 
-Original Q&A:
+Original Q&A for additional context:
 ${qaText}
 
-Please generate a comprehensive Build Pack with prompts for each category.`;
+Generate a comprehensive Build Pack with 8-10 detailed, sequential prompts. Each prompt should be specific enough that Replit Agent can build that piece without additional clarification. Include actual screen names, field names, button labels, and validation rules based on the information above.`;
 
       try {
-        console.log("Calling OpenAI for prompt generation...");
+        console.log("Calling OpenAI for detailed prompt generation...");
         
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("OpenAI timeout")), 45000)
+          setTimeout(() => reject(new Error("OpenAI timeout")), 90000)
         );
         
         const openaiPromise = openai.chat.completions.create({
@@ -453,7 +585,7 @@ Please generate a comprehensive Build Pack with prompts for each category.`;
             { role: "user", content: userPrompt },
           ],
           response_format: { type: "json_object" },
-          max_completion_tokens: 4096,
+          max_completion_tokens: 8192,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;

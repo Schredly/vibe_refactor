@@ -79,9 +79,12 @@ export type Summary = z.infer<typeof summarySchema>;
 // Prompt bundle schema - generated build prompts
 export const promptBundleSchema = z.object({
   id: z.string(),
+  sequence: z.number(), // Order in the build sequence (1, 2, 3...)
   category: z.string(),
   title: z.string(),
   content: z.string(),
+  deliverable: z.string().optional(), // Expected outcome of this prompt
+  roles: z.array(z.string()).optional(), // Affected user roles
   collapsedByDefault: z.boolean().optional(),
 });
 

@@ -1,0 +1,341 @@
+Below is a **copy/paste set of Replit prompts** you can feed sequentially. They intentionally **avoid a detailed data model** and **avoid tech recommendations** while still being specific enough for Replit to build an end-to-end MVP.
+
+---
+
+## Prompt 1 — Project Setup + Core UX Skeleton
+
+Build a browser-based MVP web app for property/facilities managers to manage maintenance tickets across multiple properties and vendors.
+
+**Core roles**
+
+* **Property Manager (authenticated)**: full access to create/manage data and tickets.
+* **Vendor/Technician (unauthenticated)**: access tickets only through **secure tokenized email links** (no full portal or login for them in v1).
+
+**MVP screens (4)**
+
+1. **Manager Dashboard**
+2. **Tickets (List + Detail)**
+3. **Foundational Data (tabbed CRUD)**
+4. **Knowledge Base + Asset History**
+
+**Global UI requirements**
+
+* Responsive, mobile-friendly layout
+* Clear navigation (sidebar or top nav)
+* Consistent components for tables, forms, status chips, and empty states
+* Top-right user menu with “Logout”
+* A primary CTA button “New Ticket” available from Dashboard and Tickets page
+
+**Auth**
+
+* Implement manager login + session
+* Block all manager routes unless logged in
+* Vendor/technician routes are accessible only via secure token in URL
+
+**Deliverable**
+
+* App runs end-to-end with routing, placeholder pages for each screen, and working login/logout.
+
+---
+
+## Prompt 2 — Manager Dashboard (Counts, Filters, Recent Tickets)
+
+Implement the **Manager Dashboard** with:
+
+* Summary cards:
+
+  * Ticket counts by status: **Unassigned**, **In Progress**, **Completed**
+  * **Total estimated cost** (sum of cost estimate on tickets in current filter set)
+* Filter bar:
+
+  * Date range
+  * Property selector
+  * Vendor selector
+  * Status multi-select
+* Recent tickets table:
+
+  * Columns: Ticket ID, Property, Vendor, Priority, Status, Created Date, Cost, View action
+* “New Ticket” primary CTA
+* Overdue indicator:
+
+  * Use **simple SLA targets** per priority (response/resolve targets) and show “Overdue” badge in the table and ticket rows where applicable.
+
+**Deliverable**
+
+* Filters work and update the counts + table.
+* “View” opens ticket detail.
+* “New Ticket” opens ticket create flow.
+
+---
+
+## Prompt 3 — Foundational Data (Tabbed CRUD)
+
+Create a **Foundational Data** screen for managers with tabs (or left menu):
+
+* Properties
+* Vendors & Technicians
+* Assets
+* Contracts
+
+Each tab:
+
+* Table with key fields + actions (View/Edit/Delete)
+* “New” button to add record
+* Simple validation and friendly errors
+
+Required form fields (keep minimal but usable):
+
+* **Property**: name, address, access instructions, manager contact info
+* **Vendor**: company name, address, primary contact name, email, phone
+* **Technician** (nested under vendor): name, email, phone (and “active” toggle optional)
+* **Asset**: name, type/category, property, location notes (optional), plus “active” toggle optional
+* **Contract**: name, vendor, optionally related asset(s), basic terms summary, start/end dates (simple)
+
+**Deliverable**
+
+* Full CRUD for each entity.
+* Technicians are associated to a vendor and manageable within “Vendors & Technicians”.
+* Assets are associated to a property.
+* Contracts can be linked to vendor and optionally assets.
+
+---
+
+## Prompt 4 — Ticketing: Create + Edit + Status Flow + Activity Timeline
+
+Implement **Tickets (List + Detail)** for managers, and a read/update experience for vendors/technicians via token links.
+
+### Ticket list (manager)
+
+* Search + filters:
+
+  * property, vendor, technician, priority, status, created/updated date
+* Table columns:
+
+  * Ticket ID, Property, Vendor, Technician, Priority, Status, Created, Updated, Overdue badge, View
+* “New Ticket” button
+
+### Ticket create/edit (manager)
+
+Fields:
+
+* Property (required)
+* Location/access notes (required)
+* Description (required)
+* Priority (required)
+* Vendor/company (required)
+* Optional technician assignment
+* Status (default Open; status flow: Open → In Progress → Completed)
+* Cost estimate + actual cost (simple numeric fields)
+* Associated asset: choose existing or “Add new asset” inline during ticket creation
+
+### Ticket detail (all actors)
+
+* Show all core fields above
+* SLA timestamps + overdue indicators (simple logic based on priority targets)
+* “Activity timeline” / notes:
+
+  * Add timestamped entries (who/when/what)
+  * Each status change creates an activity event
+  * Show full history in order
+
+**Vendor/Technician via secure link**
+
+* If a vendor/technician opens a tokenized ticket link:
+
+  * They can view ticket details
+  * They can update: status, notes, and optionally claim/assign technician (within their vendor only)
+  * They cannot see other vendors’ tickets or any cross-vendor data
+
+**Deliverable**
+
+* End-to-end ticket lifecycle works.
+* Auditability: show “who changed what and when” in timeline.
+
+---
+
+## Prompt 5 — Asset History (Repair History View)
+
+Add **Asset History** functionality:
+
+* From ticket detail, show an “Asset” section:
+
+  * asset dropdown + “Add new asset” inline
+  * a link/button: “View Asset History”
+* Asset history page/panel shows:
+
+  * selected asset details
+  * list of past tickets for that asset:
+
+    * date, issue summary, vendor, status, resolution notes (if any), cost
+* Ensure vendors/technicians can only access asset history relevant to the ticket they were linked to (no browsing across properties/vendors).
+
+**Deliverable**
+
+* Asset history is fast to reach from ticket detail and makes prior repairs easy to scan.
+
+---
+
+## Prompt 6 — Knowledge Base: CRUD + Search + Link Articles to Tickets
+
+Implement **Knowledge Base & Asset History** screen with:
+
+### Knowledge Base list
+
+* Search bar
+* Filters:
+
+  * asset
+  * property
+  * category
+* Table/list shows: title, category, related asset(s), property, updated date, view/edit
+
+### Article form
+
+Fields:
+
+* title
+* category (free text or simple dropdown)
+* description/steps (rich text optional; plain textarea ok)
+* related assets (multi-select)
+* property (optional)
+* attachment link (URL or file reference string)
+
+### Link articles to tickets
+
+* On ticket detail:
+
+  * section “Linked Articles”
+  * action “Link Article” opens searchable selector
+  * allow linking multiple articles
+* From Knowledge Base screen:
+
+  * “Attach to Ticket” action that attaches one or more articles to a selected open ticket (simple picker)
+
+**Deliverable**
+
+* Managers can create/search articles.
+* Vendors/techs opening secure ticket link can view linked articles from ticket detail.
+
+---
+
+## Prompt 7 — Email Notifications + Secure Token Links
+
+Add email notifications triggered by:
+
+1. Ticket created/assigned → notify vendor primary contact and assigned technician (if specified)
+2. Ticket completed → notify property manager
+
+Email contents:
+
+* ticket summary (property, priority, issue)
+* a **secure token link** to the ticket detail page for vendor/technician
+* clear “Do not forward” style warning (simple text)
+
+Security requirements:
+
+* Tokens should be single-purpose and unguessable
+* Tokens map to: ticket + vendor scope (and optionally technician scope)
+* Ensure token-based view cannot access any other ticket
+* Allow token rotation/regeneration by manager (simple “Regenerate Link” action on ticket detail)
+
+**Deliverable**
+
+* Emails send successfully in dev (use environment variables for configuration).
+* Token link opens the correct ticket detail with constrained permissions.
+
+---
+
+## Prompt 8 — Reporting: Simple Metrics + Cost Summary
+
+Add basic reporting (can be its own tab under Dashboard or a simple “Reports” section):
+
+* Ticket counts by:
+
+  * status
+  * property
+  * vendor
+* Basic cost summary:
+
+  * sum cost estimate
+  * sum actual cost
+  * show difference (actual - estimate)
+* Filter by date range + property + vendor
+
+**Deliverable**
+
+* Reports update based on filters and remain simple/fast.
+
+---
+
+## Prompt 9 — Guardrails: Access Control, PII Minimization, Auditability, Disclaimers
+
+Harden the MVP with explicit guardrails:
+
+Access control
+
+* Manager can see everything in their account scope
+* Vendors/technicians via token:
+
+  * can see only the single ticket (and linked asset history/articles relevant to that ticket)
+  * cannot browse all properties/vendors/assets/contracts
+* Prevent leaking vendor pricing/performance across vendors
+
+PII minimization
+
+* Store only necessary contact info (name, email, phone)
+* No tenant PII fields
+
+Auditability
+
+* Log key changes:
+
+  * status changes
+  * cost changes
+  * vendor/technician reassignment
+  * token regeneration
+* Show audit entries in timeline
+
+Legal/disclaimer
+
+* Add a small footer + a “Terms/Disclaimer” modal/page:
+
+  * tool is for coordination, not a substitute for safety training/licensing/compliance
+  * restrict incident/safety-sensitive notes from being exposed publicly
+
+**Deliverable**
+
+* Clear permission checks in code paths + UI.
+* Basic terms/disclaimer visible in the app.
+
+---
+
+## Prompt 10 — Polish + QA Checklist (End-to-End MVP)
+
+Finalize usability and ensure the full flow works:
+
+Required end-to-end flow
+
+1. Manager logs in
+2. Manager creates properties/vendors/techs/assets/contracts
+3. Manager creates ticket, assigns vendor, optionally technician, selects/creates asset
+4. Vendor/tech receives email, opens secure link, updates status + adds notes
+5. Vendor/tech completes ticket with actual cost
+6. Manager receives completion email
+7. Dashboard shows updated counts, costs, overdue indicators
+8. Ticket detail shows full activity history, linked articles, asset history
+
+UX polish
+
+* Confirm dialogs for delete
+* Clear empty states + “create first X” nudges
+* Inline validation messages
+* Consistent formatting for dates/currency
+* Status badges and overdue badge are visually distinct
+
+**Deliverable**
+
+* A short README section describing how to run/configure email variables and the demo flow above.
+
+---
+
+If you want, I can also generate a **single “master prompt”** that merges all 10 into one (some Replit agents prefer that), but the above sequence usually produces cleaner incremental builds.

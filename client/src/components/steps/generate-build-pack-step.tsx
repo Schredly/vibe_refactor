@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { RefreshCw, Copy, Check, ChevronDown, Edit3, ArrowRight, Loader2, FileText } from "lucide-react";
+import { RefreshCw, Copy, Check, Edit3, ArrowRight, Loader2, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { PromptBundle, DetailedSummary, Question } from "@shared/schema";
@@ -46,12 +45,34 @@ function PromptCard({
     setIsEditing(false);
   };
 
+  const isMaster = prompt.sequence === 99 || prompt.title.toLowerCase().includes("master");
+
   return (
-    <Card className="bg-muted/30">
+    <Card className={cn("bg-muted/30", isMaster && "border-primary/30 bg-primary/5")}>
       <CardHeader className="py-3 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium">{prompt.title}</CardTitle>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            {!isMaster && (
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+                {prompt.sequence}
+              </div>
+            )}
+            <div className="min-w-0">
+              <CardTitle className="text-sm font-medium truncate">
+                {isMaster ? "Master Prompt" : prompt.title}
+              </CardTitle>
+              {prompt.roles && prompt.roles.length > 0 && (
+                <div className="flex items-center gap-1 mt-1">
+                  {prompt.roles.slice(0, 3).map((role) => (
+                    <Badge key={role} variant="secondary" className="text-xs py-0">
+                      {role}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
@@ -90,13 +111,13 @@ function PromptCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4">
+      <CardContent className="px-4 pb-4 space-y-3">
         {isEditing ? (
           <div className="space-y-3">
             <Textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="min-h-[200px] font-mono text-sm"
+              className="min-h-[300px] font-mono text-sm"
               data-testid={`textarea-prompt-${prompt.id}`}
             />
             <div className="flex items-center gap-2">
@@ -109,9 +130,39 @@ function PromptCard({
             </div>
           </div>
         ) : (
-          <pre className="text-sm font-mono whitespace-pre-wrap bg-background rounded-lg p-4 max-h-[300px] overflow-auto">
-            {prompt.content}
-          </pre>
+          <>
+            <div className="text-sm whitespace-pre-wrap bg-background rounded-lg p-4 max-h-[400px] overflow-auto prose prose-sm dark:prose-invert max-w-none">
+              {prompt.content.split('\n').map((line, i) => {
+                if (line.startsWith('**') && line.endsWith('**')) {
+                  return <p key={i} className="font-semibold text-foreground mt-3 mb-1">{line.replace(/\*\*/g, '')}</p>;
+                }
+                if (line.startsWith('* **') || line.startsWith('- **')) {
+                  const parts = line.replace(/^\*\s*/, '').replace(/^-\s*/, '');
+                  return <p key={i} className="ml-4 text-muted-foreground">{parts.replace(/\*\*/g, '')}</p>;
+                }
+                if (line.startsWith('* ') || line.startsWith('- ')) {
+                  return <p key={i} className="ml-4 text-muted-foreground">{line.substring(2)}</p>;
+                }
+                if (/^\d+\.\s/.test(line)) {
+                  return <p key={i} className="ml-4 text-muted-foreground font-medium">{line}</p>;
+                }
+                if (line.trim() === '') {
+                  return <div key={i} className="h-2" />;
+                }
+                return <p key={i}>{line}</p>;
+              })}
+            </div>
+            {prompt.deliverable && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                <p className="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide mb-1">
+                  Deliverable
+                </p>
+                <p className="text-sm text-green-800 dark:text-green-300">
+                  {prompt.deliverable}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -132,9 +183,14 @@ export function GenerateBuildPackStep({
 
   const answeredQuestions = questions.filter((q) => !!q.answerText);
 
-  const categories = prompts
-    ? Array.from(new Set(prompts.map((p) => p.category)))
+  // Sort prompts by sequence number
+  const sortedPrompts = prompts 
+    ? [...prompts].sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
     : [];
+  
+  // Separate sequential prompts from master prompt
+  const sequentialPrompts = sortedPrompts.filter(p => (p.sequence || 0) < 99);
+  const masterPromptBundle = sortedPrompts.find(p => (p.sequence || 0) === 99 || p.title.toLowerCase().includes("master"));
 
   const handleGenerate = async () => {
     if (!detailedSummary) return;
@@ -143,7 +199,7 @@ export function GenerateBuildPackStep({
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => controller.abort(), 100000);
 
       const response = await fetch("/api/generatePrompts", {
         method: "POST",
@@ -209,17 +265,17 @@ export function GenerateBuildPackStep({
 
   const handleCopyMasterPrompt = () => {
     if (!prompts) return;
-    const masterPrompt = prompts
-      .map((p) => `## ${p.category}: ${p.title}\n\n${p.content}`)
+    // For sequential prompts, use Prompt N format
+    const masterPrompt = sortedPrompts
+      .filter(p => (p.sequence || 0) < 99)
+      .map((p) => `## Prompt ${p.sequence} — ${p.title}\n\n${p.content}\n\n**Deliverable**\n${p.deliverable || "Complete this step successfully."}`)
       .join("\n\n---\n\n");
     navigator.clipboard.writeText(masterPrompt);
     toast({
       title: "Master Prompt Copied",
-      description: "All prompts combined and copied to clipboard.",
+      description: "All sequential prompts copied to clipboard.",
     });
   };
-
-  const masterPromptBundle = prompts?.find((p) => p.title.toLowerCase().includes("master"));
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -267,59 +323,56 @@ export function GenerateBuildPackStep({
         <>
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="py-4 px-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Copy className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">Copy Master Prompt</p>
+                    <p className="font-medium">Copy All Sequential Prompts</p>
                     <p className="text-sm text-muted-foreground">
-                      All prompts combined into a single document
+                      {sequentialPrompts.length} prompts ready for Replit Agent
                     </p>
                   </div>
                 </div>
                 <Button onClick={handleCopyMasterPrompt} data-testid="button-copy-master">
                   <Copy className="w-4 h-4 mr-2" />
-                  Copy Master Prompt
+                  Copy All Prompts
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <Accordion type="multiple" defaultValue={categories.slice(0, 2)} className="space-y-4">
-            {categories.map((category) => {
-              const categoryPrompts = prompts.filter((p) => p.category === category);
-              return (
-                <AccordionItem
-                  key={category}
-                  value={category}
-                  className="border rounded-lg px-4"
-                >
-                  <AccordionTrigger className="py-4 hover:no-underline" data-testid={`accordion-${category}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{category}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {categoryPrompts.length} prompts
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-4 space-y-4">
-                    {categoryPrompts.map((prompt) => (
-                      <PromptCard
-                        key={prompt.id}
-                        prompt={prompt}
-                        onEdit={(content) => handleEditPrompt(prompt.id, content)}
-                        onCopy={() => handleCopyPrompt(prompt.content)}
-                        onRegenerate={() => {}}
-                        isRegenerating={regeneratingId === prompt.id}
-                      />
-                    ))}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Sequential Build Prompts</h3>
+            <p className="text-sm text-muted-foreground">
+              Feed these prompts to Replit Agent in order. Each prompt builds on the previous one.
+            </p>
+            
+            {sequentialPrompts.map((prompt) => (
+              <PromptCard
+                key={prompt.id}
+                prompt={prompt}
+                onEdit={(content) => handleEditPrompt(prompt.id, content)}
+                onCopy={() => handleCopyPrompt(prompt.content)}
+                onRegenerate={() => {}}
+                isRegenerating={regeneratingId === prompt.id}
+              />
+            ))}
+
+            {masterPromptBundle && (
+              <div className="pt-4 border-t">
+                <h3 className="text-lg font-medium mb-4">Master Prompt (Alternative)</h3>
+                <PromptCard
+                  prompt={masterPromptBundle}
+                  onEdit={(content) => handleEditPrompt(masterPromptBundle.id, content)}
+                  onCopy={() => handleCopyPrompt(masterPromptBundle.content)}
+                  onRegenerate={() => {}}
+                  isRegenerating={regeneratingId === masterPromptBundle.id}
+                />
+              </div>
+            )}
+          </div>
         </>
       )}
 
