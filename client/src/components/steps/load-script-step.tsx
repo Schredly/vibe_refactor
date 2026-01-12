@@ -297,16 +297,27 @@ Example:
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl font-semibold">Review Questions</h2>
           <p className="text-muted-foreground">
             Edit, reorder, or add questions before starting your capture session.
           </p>
         </div>
-        <Button onClick={() => setShowPreview(false)} variant="outline" data-testid="button-back">
-          Back to Import
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setShowPreview(false)} variant="outline" data-testid="button-back">
+            Back to Import
+          </Button>
+          <Button
+            onClick={handleContinue}
+            disabled={questions.length === 0}
+            className="gap-2"
+            data-testid="button-continue-to-capture-top"
+          >
+            Continue to Capture
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <Card>
