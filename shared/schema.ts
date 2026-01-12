@@ -121,6 +121,12 @@ export const agentAssistRequestSchema = z.object({
 
 export type AgentAssistRequest = z.infer<typeof agentAssistRequestSchema>;
 
+export const cleanTextRequestSchema = z.object({
+  text: z.string(),
+});
+
+export type CleanTextRequest = z.infer<typeof cleanTextRequestSchema>;
+
 export const generatePromptsRequestSchema = z.object({
   projectName: z.string(),
   summary: summarySchema,

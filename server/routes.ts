@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
-import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema } from "@shared/schema";
 import { z } from "zod";
 
 let openai: OpenAI | null = null;
@@ -568,6 +568,73 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to get agent assist" });
+    }
+  });
+
+  // Clean text endpoint - fixes grammar, spelling, and sentence flow
+  app.post("/api/cleanText", async (req, res) => {
+    try {
+      const validatedData = cleanTextRequestSchema.parse(req.body);
+      const { text } = validatedData;
+
+      if (!text.trim()) {
+        return res.json({ cleanedText: "" });
+      }
+
+      // Return original text if OpenAI is not available
+      if (!openai) {
+        console.log("OpenAI not configured, returning original text");
+        return res.json({ cleanedText: text });
+      }
+
+      const systemPrompt = `You are a text editor. Clean up the following text by:
+1. Fixing grammar and spelling errors
+2. Improving sentence flow and readability
+3. Making sentences complete and coherent
+4. Removing filler words and redundancies
+
+IMPORTANT RULES:
+- Preserve the original meaning and all information
+- Keep the same tone and voice
+- Do not add new information
+- Do not remove any substantive content
+- Return ONLY the cleaned text, nothing else`;
+
+      try {
+        console.log("Calling OpenAI to clean text...");
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("OpenAI timeout")), 15000)
+        );
+        
+        const openaiPromise = openai.chat.completions.create({
+          model: "gpt-5.1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: text },
+          ],
+          max_completion_tokens: 1000,
+        });
+
+        const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+
+        const cleanedText = response.choices[0]?.message?.content?.trim();
+        
+        if (!cleanedText) {
+          return res.json({ cleanedText: text });
+        }
+
+        return res.json({ cleanedText });
+      } catch (aiError) {
+        console.error("OpenAI API error for clean text:", aiError);
+        return res.json({ cleanedText: text });
+      }
+    } catch (error) {
+      console.error("Error in clean text:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to clean text" });
     }
   });
 

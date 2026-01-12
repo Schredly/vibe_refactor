@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Mic, Square, Pause, Play, RotateCcw, Edit3, Check, ChevronDown, ChevronUp, ArrowRight, Keyboard, Sparkles, Loader2 } from "lucide-react";
+import { Mic, Square, Pause, Play, RotateCcw, Edit3, Check, ChevronDown, ChevronUp, ArrowRight, Keyboard, Sparkles, Loader2, Wand2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +58,7 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
   const questionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [assistLoading, setAssistLoading] = useState<string | null>(null);
   const [assistResults, setAssistResults] = useState<Map<string, AgentAssistResponse>>(new Map());
+  const [cleanLoading, setCleanLoading] = useState<string | null>(null);
   const { toast } = useToast();
 
   const activeQuestion = questions[activeQuestionIndex];
@@ -213,6 +214,43 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
       return newMap;
     });
   }, []);
+
+  const handleCleanText = useCallback(async (question: Question) => {
+    if (!question.answerText?.trim()) {
+      toast({
+        title: "No answer to clean",
+        description: "Record or type an answer first.",
+        variant: "default",
+      });
+      return;
+    }
+
+    setCleanLoading(question.id);
+
+    try {
+      const response = await apiRequest("POST", "/api/cleanText", {
+        text: question.answerText,
+      });
+      
+      const result = await response.json();
+      if (result.cleanedText) {
+        onUpdateQuestion(question.id, { answerText: result.cleanedText });
+        toast({
+          title: "Text cleaned",
+          description: "Grammar, spelling, and sentence flow have been improved.",
+        });
+      }
+    } catch (error) {
+      console.error("Clean text error:", error);
+      toast({
+        title: "Could not clean text",
+        description: "Try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setCleanLoading(null);
+    }
+  }, [onUpdateQuestion, toast]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -389,6 +427,23 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                               <Edit3 className="w-4 h-4" />
                               Edit Text
                             </Button>
+                            {hasAnswer && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => handleCleanText(question)}
+                                disabled={cleanLoading === question.id || isRecording}
+                                data-testid={`button-clean-${question.id}`}
+                              >
+                                {cleanLoading === question.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Wand2 className="w-4 h-4" />
+                                )}
+                                Clean
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
