@@ -110,8 +110,13 @@ export type GenerateContextRequest = z.infer<typeof generateContextRequestSchema
 export const agentAssistRequestSchema = z.object({
   projectName: z.string(),
   contextSummary: z.string(),
+  currentQuestionIndex: z.number(),
   currentQuestion: z.string(),
   userAnswer: z.string(),
+  allQuestions: z.array(z.object({
+    text: z.string(),
+    hasAnswer: z.boolean(),
+  })),
 });
 
 export type AgentAssistRequest = z.infer<typeof agentAssistRequestSchema>;

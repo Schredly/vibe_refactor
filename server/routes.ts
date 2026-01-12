@@ -459,7 +459,7 @@ Create a brief context summary for this project.`;
   app.post("/api/agentAssist", async (req, res) => {
     try {
       const validatedData = agentAssistRequestSchema.parse(req.body);
-      const { projectName, contextSummary, currentQuestion, userAnswer } = validatedData;
+      const { projectName, contextSummary, currentQuestionIndex, currentQuestion, userAnswer, allQuestions } = validatedData;
 
       if (!userAnswer.trim()) {
         return res.json({
@@ -483,16 +483,34 @@ Create a brief context summary for this project.`;
         });
       }
 
-      const systemPrompt = `You are an expert requirements analyst helping capture MVP specifications for a vibe-coded application. Your role is to evaluate if a user's answer provides enough specific detail for a developer to implement the feature.
+      // Build a numbered list of all questions with status
+      const questionsList = allQuestions.map((q, i) => {
+        const status = i === currentQuestionIndex ? "[CURRENT]" : (q.hasAnswer ? "[answered]" : "[pending]");
+        return `${i + 1}. ${status} ${q.text}`;
+      }).join("\n");
 
-Context about this project:
+      // Identify questions that come later (the user will answer these next)
+      const laterQuestions = allQuestions
+        .slice(currentQuestionIndex + 1)
+        .map((q, i) => `Q${currentQuestionIndex + 2 + i}: ${q.text}`)
+        .join(", ");
+
+      const systemPrompt = `You are an expert requirements analyst helping capture MVP specifications. The user is building an application using a "vibe coding" AI assistant like Replit Agent - they describe what they want and the AI builds it.
+
+PROJECT CONTEXT:
 ${contextSummary}
 
-IMPORTANT: 
-- Provide SHORT, actionable suggestions (10-15 words max each)
-- Focus on what's MISSING, not what's there
-- Be encouraging but specific
-- Maximum 3 suggestions
+FULL QUESTION SET (the user will answer all of these):
+${questionsList}
+
+CRITICAL RULES:
+1. The user is currently answering question #${currentQuestionIndex + 1}
+2. DO NOT suggest adding information that is covered by later questions (${laterQuestions ? laterQuestions : "none"})
+3. Only suggest improvements SPECIFIC to the current question's scope
+4. Provide SHORT, actionable suggestions (10-15 words max each)
+5. Focus on what's MISSING from THIS answer, not general MVP advice
+6. Maximum 3 suggestions
+7. Consider what details Replit Agent would need to implement this specific aspect
 
 Output your response as valid JSON with this structure:
 {
@@ -501,11 +519,11 @@ Output your response as valid JSON with this structure:
   "improvementAreas": ["brief area needing more detail"]
 }`;
 
-      const userPrompt = `Question: ${currentQuestion}
+      const userPrompt = `CURRENT QUESTION (#${currentQuestionIndex + 1}): ${currentQuestion}
 
-User's Answer: ${userAnswer}
+USER'S ANSWER: ${userAnswer}
 
-Evaluate if this answer is specific enough for building an MVP. Provide brief, actionable suggestions.`;
+Evaluate if this answer provides enough specific detail for THIS question only. Do not ask for information that will be covered in later questions.`;
 
       try {
         console.log("Calling OpenAI for agent assist...");

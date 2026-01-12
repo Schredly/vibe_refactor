@@ -166,7 +166,7 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     setExpandedQuestions(prev => new Set(prev).add(question.id));
   }, [isRecording, handleStopRecording]);
 
-  const handleAgentAssist = useCallback(async (question: Question) => {
+  const handleAgentAssist = useCallback(async (question: Question, questionIndex: number) => {
     if (!question.answerText?.trim()) {
       toast({
         title: "No answer to analyze",
@@ -183,8 +183,13 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
       const response = await apiRequest("POST", "/api/agentAssist", {
         projectName,
         contextSummary: agentContext?.systemPrompt || `Requirements capture for ${projectName}`,
+        currentQuestionIndex: questionIndex,
         currentQuestion: question.text,
         userAnswer: question.answerText,
+        allQuestions: questions.map(q => ({
+          text: q.text,
+          hasAnswer: !!q.answerText,
+        })),
       });
       
       const result: AgentAssistResponse = await response.json();
@@ -199,7 +204,7 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     } finally {
       setAssistLoading(null);
     }
-  }, [projectName, agentContext, toast]);
+  }, [projectName, agentContext, questions, toast]);
 
   const clearAssistResult = useCallback((questionId: string) => {
     setAssistResults(prev => {
@@ -388,7 +393,7 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
                               variant="outline"
                               size="sm"
                               className="gap-2 border-primary/50 text-primary hover:bg-primary/10"
-                              onClick={() => handleAgentAssist(question)}
+                              onClick={() => handleAgentAssist(question, index)}
                               disabled={assistLoading === question.id || isRecording}
                               data-testid={`button-agent-assist-${question.id}`}
                             >
