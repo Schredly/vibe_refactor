@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
-import { summarizeRequestSchema, generatePromptsRequestSchema } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema } from "@shared/schema";
 import { z } from "zod";
 
 let openai: OpenAI | null = null;
@@ -373,6 +373,183 @@ Please generate a comprehensive Build Pack with prompts for each category.`;
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to generate prompts" });
+    }
+  });
+
+  // Generate context summary for Agent Assist - called when questions are loaded
+  app.post("/api/generateContext", async (req, res) => {
+    try {
+      const validatedData = generateContextRequestSchema.parse(req.body);
+      const { projectName, questions } = validatedData;
+
+      if (questions.length === 0) {
+        return res.status(400).json({ error: "No questions provided" });
+      }
+
+      // Generate a mock context if OpenAI is not available
+      if (!openai) {
+        console.log("OpenAI not configured, returning mock context");
+        return res.json({
+          systemPrompt: `You are helping capture requirements for an MVP called "${projectName}". The user is answering questions about their project to help define the build scope. There are ${questions.length} questions covering various aspects of the application.`,
+          generatedAt: new Date().toISOString(),
+        });
+      }
+
+      const questionsList = questions.map((q, i) => `${i + 1}. ${q.text}`).join("\n");
+
+      const systemPrompt = `You are an expert product strategist. Analyze these MVP discovery questions and create a brief context summary that captures the purpose and scope of the application being built. This context will be used to help an AI assistant provide better suggestions during the requirements capture process.
+
+Output a single paragraph (2-3 sentences) that summarizes what kind of application is being defined and what the questions are trying to uncover. Be concise and focus on the application's purpose.`;
+
+      const userPrompt = `Project: ${projectName}
+
+Discovery Questions:
+${questionsList}
+
+Create a brief context summary for this project.`;
+
+      try {
+        console.log("Calling OpenAI for context generation...");
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("OpenAI timeout")), 30000)
+        );
+        
+        const openaiPromise = openai.chat.completions.create({
+          model: "gpt-5.1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_completion_tokens: 300,
+        });
+
+        const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+
+        const content = response.choices[0]?.message?.content;
+        
+        if (!content) {
+          return res.json({
+            systemPrompt: `You are helping capture requirements for an MVP called "${projectName}". The user is answering questions about their project.`,
+            generatedAt: new Date().toISOString(),
+          });
+        }
+
+        return res.json({
+          systemPrompt: content.trim(),
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (aiError) {
+        console.error("OpenAI API error for context:", aiError);
+        return res.json({
+          systemPrompt: `You are helping capture requirements for an MVP called "${projectName}". The user is answering questions about their project.`,
+          generatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error generating context:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to generate context" });
+    }
+  });
+
+  // Agent Assist - evaluate answer specificity and provide suggestions
+  app.post("/api/agentAssist", async (req, res) => {
+    try {
+      const validatedData = agentAssistRequestSchema.parse(req.body);
+      const { projectName, contextSummary, currentQuestion, userAnswer } = validatedData;
+
+      if (!userAnswer.trim()) {
+        return res.json({
+          isSpecificEnough: false,
+          suggestions: ["Start by recording your thoughts on this question."],
+          improvementAreas: ["No answer provided yet"],
+        });
+      }
+
+      // Return mock suggestions if OpenAI is not available
+      if (!openai) {
+        console.log("OpenAI not configured, returning mock suggestions");
+        return res.json({
+          isSpecificEnough: userAnswer.length > 50,
+          suggestions: [
+            "Consider adding specific examples",
+            "Mention target users or personas",
+            "Include any technical constraints",
+          ],
+          improvementAreas: ["Add more detail about implementation"],
+        });
+      }
+
+      const systemPrompt = `You are an expert requirements analyst helping capture MVP specifications for a vibe-coded application. Your role is to evaluate if a user's answer provides enough specific detail for a developer to implement the feature.
+
+Context about this project:
+${contextSummary}
+
+IMPORTANT: 
+- Provide SHORT, actionable suggestions (10-15 words max each)
+- Focus on what's MISSING, not what's there
+- Be encouraging but specific
+- Maximum 3 suggestions
+
+Output your response as valid JSON with this structure:
+{
+  "isSpecificEnough": true/false,
+  "suggestions": ["short suggestion 1", "short suggestion 2"],
+  "improvementAreas": ["brief area needing more detail"]
+}`;
+
+      const userPrompt = `Question: ${currentQuestion}
+
+User's Answer: ${userAnswer}
+
+Evaluate if this answer is specific enough for building an MVP. Provide brief, actionable suggestions.`;
+
+      try {
+        console.log("Calling OpenAI for agent assist...");
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("OpenAI timeout")), 20000)
+        );
+        
+        const openaiPromise = openai.chat.completions.create({
+          model: "gpt-5.1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 300,
+        });
+
+        const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+
+        const content = response.choices[0]?.message?.content;
+        
+        if (!content) {
+          return res.json({
+            isSpecificEnough: false,
+            suggestions: ["Try adding more specific details to your answer."],
+          });
+        }
+
+        const result = JSON.parse(content);
+        return res.json(result);
+      } catch (aiError) {
+        console.error("OpenAI API error for agent assist:", aiError);
+        return res.json({
+          isSpecificEnough: false,
+          suggestions: ["Try adding more specific details to your answer."],
+        });
+      }
+    } catch (error) {
+      console.error("Error in agent assist:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to get agent assist" });
     }
   });
 
