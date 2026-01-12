@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { WizardProgress } from "@/components/wizard-progress";
@@ -10,7 +10,9 @@ import { GenerateBuildPackStep } from "@/components/steps/generate-build-pack-st
 import { CreateAppStep } from "@/components/steps/create-app-step";
 import { useProjects } from "@/hooks/use-projects";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Question, Summary, PromptBundle } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import type { Question, AgentContext } from "@shared/schema";
 
 export default function Home() {
   const {
@@ -28,7 +30,10 @@ export default function Home() {
     setSummary,
     setGeneratedPrompts,
     setScriptContent,
+    setAgentContext,
   } = useProjects();
+
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading && projects.length === 0) {
@@ -38,11 +43,32 @@ export default function Home() {
 
   const currentStep = activeProject?.currentStep || 1;
 
-  const handleQuestionsExtracted = (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive") => {
+  const generateContext = useCallback(async (projectName: string, questions: Question[]) => {
+    try {
+      const response = await apiRequest("POST", "/api/generateContext", {
+        projectName,
+        questions: questions.map(q => ({ text: q.text })),
+      });
+      const context: AgentContext = await response.json();
+      setAgentContext(context);
+    } catch (error) {
+      console.error("Failed to generate context:", error);
+      setAgentContext({
+        systemPrompt: `You are helping capture requirements for an MVP called "${projectName}".`,
+        generatedAt: new Date().toISOString(),
+      });
+    }
+  }, [setAgentContext]);
+
+  const handleQuestionsExtracted = useCallback(async (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive") => {
     setQuestions(questions);
     setScriptContent(content, source);
     setCurrentStep(2);
-  };
+    
+    if (activeProject) {
+      generateContext(activeProject.name, questions);
+    }
+  }, [setQuestions, setScriptContent, setCurrentStep, activeProject, generateContext]);
 
   const handleStepClick = (step: number) => {
     if (step <= currentStep) {
@@ -91,6 +117,8 @@ export default function Home() {
         return (
           <CaptureAnswersStep
             questions={activeProject.questions || []}
+            projectName={activeProject.name}
+            agentContext={activeProject.agentContext}
             onUpdateQuestion={updateQuestion}
             onContinue={() => setCurrentStep(3)}
           />

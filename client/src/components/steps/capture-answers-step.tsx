@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Mic, Square, Pause, Play, RotateCcw, Edit3, Check, ChevronDown, ChevronUp, ArrowRight, Keyboard } from "lucide-react";
+import { Mic, Square, Pause, Play, RotateCcw, Edit3, Check, ChevronDown, ChevronUp, ArrowRight, Keyboard, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,10 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useSpeechTranscription } from "@/hooks/use-speech-transcription";
-import type { Question } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Question, AgentContext, AgentAssistResponse } from "@shared/schema";
 
 interface CaptureAnswersStepProps {
   questions: Question[];
+  projectName: string;
+  agentContext?: AgentContext;
   onUpdateQuestion: (id: string, updates: Partial<Question>) => void;
   onContinue: () => void;
 }
@@ -46,12 +50,15 @@ function RecordingWaveform({ isActive }: { isActive: boolean }) {
   );
 }
 
-export function CaptureAnswersStep({ questions, onUpdateQuestion, onContinue }: CaptureAnswersStepProps) {
+export function CaptureAnswersStep({ questions, projectName, agentContext, onUpdateQuestion, onContinue }: CaptureAnswersStepProps) {
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
   const questionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [assistLoading, setAssistLoading] = useState<string | null>(null);
+  const [assistResults, setAssistResults] = useState<Map<string, AgentAssistResponse>>(new Map());
+  const { toast } = useToast();
 
   const activeQuestion = questions[activeQuestionIndex];
   
@@ -158,6 +165,49 @@ export function CaptureAnswersStep({ questions, onUpdateQuestion, onContinue }: 
     setEditText(question.answerText || "");
     setExpandedQuestions(prev => new Set(prev).add(question.id));
   }, [isRecording, handleStopRecording]);
+
+  const handleAgentAssist = useCallback(async (question: Question) => {
+    if (!question.answerText?.trim()) {
+      toast({
+        title: "No answer to analyze",
+        description: "Record or type an answer first, then use Agent Assist for feedback.",
+        variant: "default",
+      });
+      return;
+    }
+
+    setAssistLoading(question.id);
+    setExpandedQuestions(prev => new Set(prev).add(question.id));
+
+    try {
+      const response = await apiRequest("POST", "/api/agentAssist", {
+        projectName,
+        contextSummary: agentContext?.systemPrompt || `Requirements capture for ${projectName}`,
+        currentQuestion: question.text,
+        userAnswer: question.answerText,
+      });
+      
+      const result: AgentAssistResponse = await response.json();
+      setAssistResults(prev => new Map(prev).set(question.id, result));
+    } catch (error) {
+      console.error("Agent Assist error:", error);
+      toast({
+        title: "Agent Assist unavailable",
+        description: "Could not get suggestions right now. Try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setAssistLoading(null);
+    }
+  }, [projectName, agentContext, toast]);
+
+  const clearAssistResult = useCallback((questionId: string) => {
+    setAssistResults(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(questionId);
+      return newMap;
+    });
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -334,6 +384,21 @@ export function CaptureAnswersStep({ questions, onUpdateQuestion, onContinue }: 
                               <Edit3 className="w-4 h-4" />
                               Edit Text
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 border-primary/50 text-primary hover:bg-primary/10"
+                              onClick={() => handleAgentAssist(question)}
+                              disabled={assistLoading === question.id || isRecording}
+                              data-testid={`button-agent-assist-${question.id}`}
+                            >
+                              {assistLoading === question.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-4 h-4" />
+                              )}
+                              Agent Assist
+                            </Button>
                           </>
                         ) : isQuestionRecording ? (
                           <>
@@ -446,6 +511,59 @@ export function CaptureAnswersStep({ questions, onUpdateQuestion, onContinue }: 
                               </p>
                             )}
                           </div>
+                          
+                          {assistResults.has(question.id) && (
+                            <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20" data-testid={`agent-assist-result-${question.id}`}>
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-primary" />
+                                  <span className="font-medium text-sm">Agent Assist</span>
+                                  {assistResults.get(question.id)?.isSpecificEnough ? (
+                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                      Good detail
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                      Needs more detail
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => clearAssistResult(question.id)}
+                                  data-testid={`button-dismiss-assist-${question.id}`}
+                                >
+                                  <span className="sr-only">Dismiss</span>
+                                  <span className="text-muted-foreground text-sm">×</span>
+                                </Button>
+                              </div>
+                              
+                              {assistResults.get(question.id)?.suggestions && assistResults.get(question.id)!.suggestions.length > 0 && (
+                                <div className="space-y-2">
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Suggestions</p>
+                                  <ul className="space-y-1.5">
+                                    {assistResults.get(question.id)!.suggestions.map((suggestion, i) => (
+                                      <li key={i} className="text-sm flex items-start gap-2">
+                                        <span className="text-primary mt-0.5">•</span>
+                                        <span>{suggestion}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              
+                              {assistResults.get(question.id)?.improvementAreas && assistResults.get(question.id)!.improvementAreas!.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-primary/10">
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Areas to expand</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {assistResults.get(question.id)!.improvementAreas!.join(", ")}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </CollapsibleContent>
                       </Collapsible>
                     </div>
