@@ -1,0 +1,363 @@
+Below is a copy/paste prompt pack you can feed into Replit to build an “elegant wizard” app that:
+
+loads a Google Drive doc (or uploaded file),
+
+extracts questions into a clean UI,
+
+lets you Record an answer per question (speech-to-text),
+
+collapses answers under each question,
+
+produces a GPT summary of the MVP understanding,
+
+then generates collapsible prompt bundles for building the MVP,
+
+and finally hands those prompts into Replit’s “create/generate app” flow (as much as Replit allows from inside an app).
+
+I’m writing these prompts assuming a modern Replit stack (Next.js or React + Node). If Replit chooses a different stack, it should still follow the same behavior.
+
+Prompt 1 — Build the app skeleton + UX “wizard” flow
+
+Prompt to paste into Replit:
+
+Build a web application called “MVP Wizard” that guides a user through capturing requirements from an end user via a question script + voice answers, then summarizes and generates build prompts.
+
+Core UX (Wizard)
+
+Create a step-based wizard with a top progress indicator:
+
+Load Script
+
+Capture Answers
+
+Review & Summarize
+
+Generate Build Prompts
+
+Create App (handoff to Replit)
+
+Use a clean, premium UI (minimal, modern, lots of whitespace, rounded cards). Include dark mode toggle.
+
+Data Model (keep light, not detailed)
+
+Represent a “Project” with:
+
+projectName
+
+scriptSource (upload | googleDriveLink | pasteText)
+
+questions: array of { id, text, answerText, answerTranscriptChunks?, audioBlobRef?, createdAt }
+
+summary: { draft, revised? }
+
+generatedPrompts: array of { category, title, content, collapsedByDefault }
+
+Persist locally (browser localStorage) and also in a simple backend store (SQLite or file-based JSON) so projects can be re-opened.
+
+Navigation
+
+Left sidebar: list of Projects (create new, open existing, rename, delete)
+Main area: active wizard step.
+
+Script ingestion
+
+On Load Script step:
+
+Option A: Upload .txt / .md / .docx (if .docx, parse text)
+
+Option B: Paste text
+
+Option C: Google Drive link input (if auth is too complex, allow “public doc exported as text” or “paste contents” fallback)
+Once loaded, extract questions into an ordered list.
+Questions are defined as lines ending with “?” OR numbered lines (1., 2., -) OR headings that look like prompts.
+Show a preview list and allow user to edit / reorder / delete / add questions before starting.
+
+Answer capture UI
+
+For each question, display a card:
+
+Question text
+
+Buttons: Record, Stop, Re-record, Edit Text
+
+A collapsible “Answer” area under it:
+
+live transcript while recording
+
+final transcript stored under the question
+
+A “Next unanswered question” shortcut and auto-scroll behavior.
+
+Keyboard shortcuts: R = record/stop, N = next
+
+Review & Summarize
+
+A button: Generate MVP Summary which calls an LLM endpoint and returns:
+
+“MVP Understanding” summary
+
+“Assumptions”
+
+“Open Questions”
+Allow inline edits and a “Regenerate” button.
+
+Generate Build Prompts
+
+Button label should be “Generate Build Pack” (this is the new name).
+This generates collapsible prompt bundles grouped by category:
+
+Product Overview
+
+User Stories & Flows
+
+UI Requirements
+
+API / Backend Requirements
+
+Data Storage (high level only)
+
+Integrations
+
+Non-functional Requirements
+
+Test Plan / Acceptance Criteria
+Each category is collapsible, and each prompt is easily copyable (copy button).
+
+Create App (Replit handoff)
+
+Add a final step with:
+
+A big “Create App in Replit” button that:
+
+Packages the generated prompt bundles into a single “Master Prompt”
+
+Copies it to clipboard automatically
+
+Shows instructions: “Paste into Replit Agent to generate the MVP”
+If Replit supports any in-app deep link / API handoff, implement it; otherwise provide the best possible guided handoff.
+
+Tech requirements
+
+Frontend: Next.js (preferred) or React + Vite
+
+Backend: Node/Express routes (or Next API routes)
+
+Speech-to-text: use browser Web Speech API as default; also provide a pluggable interface so Whisper can be used later.
+
+LLM: server-side call to OpenAI-compatible endpoint using env var keys. Provide a settings screen for API key + model name.
+
+Include robust error handling, loading states, and toasts.
+
+Provide sample script + sample project.
+
+Deliver working code with clear README instructions for running inside Replit.
+
+
+---
+
+## Prompt 2 — Implement speech-to-text recording per question (clean + reliable)
+
+**Prompt to paste into Replit:**
+
+Enhance MVP Wizard’s “Capture Answers” step with a reliable recording + transcription system.
+
+### Requirements
+- Default transcription: **Web Speech API** (SpeechRecognition / webkitSpeechRecognition)
+- Provide a fallback mode: manual typing only.
+- Make the transcription per-question, not global.
+
+### UX details
+- When user clicks Record on a question:
+  - show mic “recording” indicator on that card only
+  - start streaming interim transcript into the collapsible Answer area
+- When user clicks Stop:
+  - finalize transcript, store in question.answerText
+- Re-record:
+  - confirm “Replace existing answer?” and then overwrite
+- Edit text:
+  - allow manual editing of answerText in a textarea
+- Collapsible Answer area:
+  - default collapsed if answer exists, expanded when recording or empty
+
+### Robustness
+- Handle permission denied
+- Handle mobile / unsupported browsers
+- Auto-restart recognition if it stops unexpectedly while recording
+- Debounce transcript updates to avoid UI jitter
+- Store partial transcripts so nothing is lost
+
+### Optional audio capture
+If easy: also record raw audio via MediaRecorder and store it as a blob reference, but this is optional. The key is accurate text capture.
+
+### Developer architecture
+Create a reusable hook like:
+- useSpeechTranscription({ onFinal, onInterim, lang })
+
+Make sure the system supports different languages (default en-US).
+
+Prompt 3 — LLM summarization + “agreement loop” with the user
+
+Prompt to paste into Replit:
+
+Implement the “Review & Summarize” step with an LLM-powered summary workflow.
+
+Backend
+
+Create an API route /api/summarize that accepts:
+
+projectName
+
+questions + answers (only answered ones)
+Return JSON:
+
+mvpSummary
+
+assumptions
+
+openQuestions
+
+recommendedMvpScope (what to include vs. defer)
+
+risks
+
+Prompting behavior
+
+The LLM should:
+
+infer what the MVP is
+
+avoid making up details
+
+flag missing info
+
+keep it concise and structured
+
+UI
+
+Show the summary in a clean editable editor:
+
+sections with headings
+
+each section has “Edit” mode
+Buttons:
+
+Generate
+
+Regenerate
+
+Mark as “Agreed” (this sets a project flag summaryAgreed = true)
+
+Only allow “Generate Build Pack” once summary is Agreed, but allow override with a warning.
+
+
+---
+
+## Prompt 4 — Generate “Build Pack” prompts (no detailed data model)
+
+**Prompt to paste into Replit:**
+
+Implement “Generate Build Pack” so it creates prompt bundles that can be pasted into Replit Agent to generate an MVP.
+
+### Rules
+- Do NOT produce a detailed data model (no exhaustive schemas).
+- Keep storage requirements high-level: “store X fields” not full ERD.
+- Focus on actions, screens, flows, and acceptance criteria.
+
+### Output format
+Return an array of prompt bundles:
+Each bundle:
+- category
+- title
+- content (markdown)
+- collapsedByDefault true
+
+Categories must include:
+1) Product Overview (one-pager)
+2) Primary User Flows (step-by-step)
+3) UI Spec (screens + components)
+4) Backend/API Spec (endpoints & responsibilities)
+5) Storage (high-level only)
+6) Edge Cases & Validation
+7) Acceptance Criteria
+8) V1 Cut List (what is explicitly out of scope)
+9) “Replit Master Prompt” (single consolidated prompt)
+
+### UI
+- Show categories as accordion sections
+- Each prompt has:
+  - copy button
+  - “edit” button
+  - “regenerate this section” button
+- Provide a “Copy Master Prompt” button at top
+
+### Backend
+Create `/api/generatePrompts` that uses the agreed summary + Q/A.
+
+Prompt 5 — “Create App in Replit” handoff experience
+
+Prompt to paste into Replit:
+
+Implement the final step “Create App”.
+
+Goal
+
+Make it dead-simple to take the generated “Replit Master Prompt” and kick off app generation.
+
+Required behavior
+
+Big button: “Launch MVP Build in Replit”
+
+On click:
+
+copy the Master Prompt to clipboard
+
+show a modal with:
+
+step 1: “Open Replit Agent / new app”
+
+step 2: “Paste prompt”
+
+step 3: “Run / iterate”
+
+If there’s a Replit deep link format available, implement it (otherwise omit).
+
+Allow exporting the prompt pack as:
+
+Markdown file download
+
+JSON download
+
+Bonus
+
+Add a “Prompt Pack Quality Check” that warns if key pieces are missing (no user, no core flows, no screens, etc.).
+
+
+---
+
+## Naming suggestions (better than “generate prompts”)
+Use any of these (I like the first two):
+- **Generate Build Pack**
+- **Create Prompt Pack**
+- **Build Blueprint**
+- **MVP Build Kit**
+- **Generate Replit Build Brief**
+
+---
+
+## Optional “stretch” prompt (Whisper local / server transcription)
+If you want a more dependable dictation path than Web Speech API, paste this after the core app works:
+
+**Prompt:**
+
+Add an optional transcription engine: **Whisper**.
+- If environment supports it, run Whisper server-side:
+  - upload recorded audio to `/api/transcribe`
+  - return transcript and replace answerText
+- Let user select transcription engine in Settings:
+  - Browser Speech (default)
+  - Whisper (higher accuracy)
+
+Keep it modular so the app works without Whisper.
+  
+
+If you want, paste the script format you’re currently using (even a snippet) and I’ll add a 
