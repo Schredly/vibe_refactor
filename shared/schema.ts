@@ -39,6 +39,14 @@ export const promptBundleSchema = z.object({
 
 export type PromptBundle = z.infer<typeof promptBundleSchema>;
 
+// Agent Assist context schema - generated when questions are loaded
+export const agentContextSchema = z.object({
+  systemPrompt: z.string(),
+  generatedAt: z.string(),
+});
+
+export type AgentContext = z.infer<typeof agentContextSchema>;
+
 // Project schema - main data model
 export const projectSchema = z.object({
   id: z.string(),
@@ -46,6 +54,7 @@ export const projectSchema = z.object({
   scriptSource: z.enum(["upload", "paste", "googleDrive"]).optional(),
   scriptContent: z.string().optional(),
   questions: z.array(questionSchema).optional(),
+  agentContext: agentContextSchema.optional(),
   summary: summarySchema.optional(),
   generatedPrompts: z.array(promptBundleSchema).optional(),
   currentStep: z.number().default(1),
@@ -68,6 +77,15 @@ export const updateProjectSchema = projectSchema.partial().omit({
   createdAt: true,
 });
 
+// Agent Assist response schema
+export const agentAssistResponseSchema = z.object({
+  isSpecificEnough: z.boolean(),
+  suggestions: z.array(z.string()),
+  improvementAreas: z.array(z.string()).optional(),
+});
+
+export type AgentAssistResponse = z.infer<typeof agentAssistResponseSchema>;
+
 // API request/response types
 export const summarizeRequestSchema = z.object({
   projectName: z.string(),
@@ -80,6 +98,23 @@ export const summarizeRequestSchema = z.object({
 });
 
 export type SummarizeRequest = z.infer<typeof summarizeRequestSchema>;
+
+// Agent Assist request schemas
+export const generateContextRequestSchema = z.object({
+  projectName: z.string(),
+  questions: z.array(z.object({ text: z.string() })),
+});
+
+export type GenerateContextRequest = z.infer<typeof generateContextRequestSchema>;
+
+export const agentAssistRequestSchema = z.object({
+  projectName: z.string(),
+  contextSummary: z.string(),
+  currentQuestion: z.string(),
+  userAnswer: z.string(),
+});
+
+export type AgentAssistRequest = z.infer<typeof agentAssistRequestSchema>;
 
 export const generatePromptsRequestSchema = z.object({
   projectName: z.string(),
