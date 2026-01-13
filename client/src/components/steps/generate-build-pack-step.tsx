@@ -31,7 +31,7 @@ function PromptCard({
   isRegenerating: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(prompt.content);
+  const [editContent, setEditContent] = useState(prompt.content || '');
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -132,7 +132,7 @@ function PromptCard({
         ) : (
           <>
             <div className="text-sm whitespace-pre-wrap bg-background rounded-lg p-4 max-h-[400px] overflow-auto prose prose-sm dark:prose-invert max-w-none">
-              {prompt.content.split('\n').map((line, i) => {
+              {(prompt.content || '').split('\n').map((line, i) => {
                 if (line.startsWith('**') && line.endsWith('**')) {
                   return <p key={i} className="font-semibold text-foreground mt-3 mb-1">{line.replace(/\*\*/g, '')}</p>;
                 }
