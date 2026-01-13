@@ -3,8 +3,39 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, type LLMSettings } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, type LLMSettings, type InsertLlmLog } from "@shared/schema";
 import { z } from "zod";
+
+// Helper to log LLM calls to the database
+async function logLlmCall(params: {
+  stepName: string;
+  projectId?: string;
+  provider: string;
+  model: string;
+  inputMessages: { role: string; content: string }[];
+  outputContent: string | null;
+  durationMs: number;
+  status: "success" | "error" | "timeout";
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const log: InsertLlmLog = {
+      stepName: params.stepName,
+      projectId: params.projectId || null,
+      provider: params.provider,
+      model: params.model,
+      inputMessages: params.inputMessages,
+      outputContent: params.outputContent,
+      durationMs: params.durationMs,
+      status: params.status,
+      errorMessage: params.errorMessage || null,
+    };
+    await storage.createLlmLog(log);
+    console.log(`[LOG] LLM call logged: ${params.stepName} via ${params.provider}/${params.model} - ${params.status}`);
+  } catch (error) {
+    console.error("Failed to log LLM call:", error);
+  }
+}
 
 // Types for unified LLM interface
 interface ChatMessage {
@@ -595,6 +626,12 @@ ${qaText}
 
 Please analyze this and produce a comprehensive MVP plan with all sections filled in based on the user's answers.`;
 
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      const startTime = Date.now();
+      
       try {
         console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed summary generation...`);
         
@@ -603,16 +640,26 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         );
         
         const llmPromise = llmClient.chat({
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages,
           maxTokens: 4096,
-          jsonMode: llmClient.provider === "openai", // Only OpenAI supports json_object mode
+          jsonMode: llmClient.provider === "openai",
         });
 
         const content = await Promise.race([llmPromise, timeoutPromise]);
+        const durationMs = Date.now() - startTime;
         console.log("LLM detailed summary response received, content length:", content?.length || 0);
+        
+        // Log the successful call
+        await logLlmCall({
+          stepName: "summarize",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: messages,
+          outputContent: content,
+          durationMs,
+          status: content ? "success" : "error",
+          errorMessage: content ? undefined : "Empty response from LLM",
+        });
         
         if (!content) {
           console.log("Empty LLM response, using fallback");
@@ -630,7 +677,21 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         summary.lastGeneratedAt = new Date().toISOString();
         return res.json(summary);
       } catch (aiError) {
+        const durationMs = Date.now() - startTime;
         console.error("LLM API error:", aiError);
+        
+        // Log the error
+        await logLlmCall({
+          stepName: "summarize",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: messages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message === "LLM timeout" ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
         console.log("Falling back to mock detailed summary");
         return res.json(generateMockDetailedSummary(projectName, questions));
       }
@@ -781,6 +842,12 @@ Each prompt should be so detailed that:
 
 Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.`;
 
+      const promptMessages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      const promptStartTime = Date.now();
+
       try {
         console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed prompt generation...`);
         
@@ -789,16 +856,26 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
         );
         
         const llmPromise = llmClient.chat({
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages: promptMessages,
           maxTokens: 16384,
           jsonMode: llmClient.provider === "openai",
         });
 
         const content = await Promise.race([llmPromise, timeoutPromise]);
+        const durationMs = Date.now() - promptStartTime;
         console.log("LLM response received, content length:", content?.length || 0);
+        
+        // Log the call
+        await logLlmCall({
+          stepName: "generatePrompts",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: promptMessages,
+          outputContent: content,
+          durationMs,
+          status: content ? "success" : "error",
+          errorMessage: content ? undefined : "Empty response from LLM",
+        });
         
         if (!content) {
           console.log("Empty LLM response, using fallback");
@@ -816,7 +893,21 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
         console.log("Parsed prompts count:", result.prompts?.length || 0);
         return res.json(result);
       } catch (aiError) {
+        const durationMs = Date.now() - promptStartTime;
         console.error("LLM API error:", aiError);
+        
+        // Log the error
+        await logLlmCall({
+          stepName: "generatePrompts",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: promptMessages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message === "LLM timeout" ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
         console.log("Falling back to mock prompts");
         return res.json(generateMockPrompts(projectName));
       }
@@ -1198,6 +1289,38 @@ Respond in JSON format:
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to get research examples" });
+    }
+  });
+
+  // LLM Logs endpoints
+  app.get("/api/logs", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getLlmLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching logs:", error);
+      res.status(500).json({ error: "Failed to fetch logs" });
+    }
+  });
+
+  app.get("/api/logs/project/:projectId", async (req, res) => {
+    try {
+      const logs = await storage.getLlmLogsByProject(req.params.projectId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching project logs:", error);
+      res.status(500).json({ error: "Failed to fetch project logs" });
+    }
+  });
+
+  app.delete("/api/logs", async (req, res) => {
+    try {
+      await storage.clearLlmLogs();
+      res.json({ success: true, message: "All logs cleared" });
+    } catch (error) {
+      console.error("Error clearing logs:", error);
+      res.status(500).json({ error: "Failed to clear logs" });
     }
   });
 
