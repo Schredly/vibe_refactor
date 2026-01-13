@@ -1,4 +1,7 @@
-import type { Project, InsertProject, Summary, PromptBundle, Question } from "@shared/schema";
+import type { Project, InsertProject, InsertLlmLog, LlmLog } from "@shared/schema";
+import { llmLogs } from "@shared/schema";
+import { db } from "./db";
+import { desc, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -7,9 +10,17 @@ export interface IStorage {
   createProject(project: Partial<InsertProject>): Promise<Project>;
   updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: string): Promise<boolean>;
+  
+  // LLM logging
+  createLlmLog(log: InsertLlmLog): Promise<LlmLog>;
+  getLlmLogs(limit?: number): Promise<LlmLog[]>;
+  getLlmLogsByProject(projectId: string): Promise<LlmLog[]>;
+  clearLlmLogs(): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
+// Projects are kept in memory (localStorage on frontend handles persistence)
+// LLM logs are stored in database for persistence
+export class HybridStorage implements IStorage {
   private projects: Map<string, Project>;
 
   constructor() {
@@ -62,6 +73,26 @@ export class MemStorage implements IStorage {
   async deleteProject(id: string): Promise<boolean> {
     return this.projects.delete(id);
   }
+
+  // LLM Logging methods - stored in PostgreSQL
+  async createLlmLog(log: InsertLlmLog): Promise<LlmLog> {
+    const [created] = await db.insert(llmLogs).values(log).returning();
+    return created;
+  }
+
+  async getLlmLogs(limit: number = 100): Promise<LlmLog[]> {
+    return db.select().from(llmLogs).orderBy(desc(llmLogs.createdAt)).limit(limit);
+  }
+
+  async getLlmLogsByProject(projectId: string): Promise<LlmLog[]> {
+    return db.select().from(llmLogs)
+      .where(eq(llmLogs.projectId, projectId))
+      .orderBy(desc(llmLogs.createdAt));
+  }
+
+  async clearLlmLogs(): Promise<void> {
+    await db.delete(llmLogs);
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new HybridStorage();

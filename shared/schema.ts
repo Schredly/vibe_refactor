@@ -1,4 +1,31 @@
 import { z } from "zod";
+import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+
+// ===========================================
+// DATABASE TABLES (Drizzle ORM)
+// ===========================================
+
+// LLM Logs table - tracks all LLM API calls
+export const llmLogs = pgTable("llm_logs", {
+  id: serial("id").primaryKey(),
+  projectId: text("project_id"),
+  stepName: text("step_name").notNull(), // e.g., "summarize", "generatePrompts", "agentAssist", "cleanText"
+  provider: text("provider").notNull(), // "openai", "anthropic", "custom"
+  model: text("model").notNull(),
+  inputMessages: jsonb("input_messages").notNull(), // The messages sent to the LLM
+  outputContent: text("output_content"), // The response from the LLM
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  durationMs: integer("duration_ms"),
+  status: text("status").notNull().default("success"), // "success", "error", "timeout"
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLlmLogSchema = createInsertSchema(llmLogs).omit({ id: true, createdAt: true });
+export type InsertLlmLog = z.infer<typeof insertLlmLogSchema>;
+export type LlmLog = typeof llmLogs.$inferSelect;
 
 // Question schema - individual questions extracted from a script
 export const questionSchema = z.object({
