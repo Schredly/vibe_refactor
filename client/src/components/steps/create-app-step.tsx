@@ -166,7 +166,7 @@ ${p.content}`).join("\n\n---\n\n")}`;
             data-testid="button-launch-build"
           >
             <Rocket className="w-5 h-5" />
-            Launch MVP Build in Replit
+            Vibe Code It!
           </Button>
         </CardContent>
       </Card>
