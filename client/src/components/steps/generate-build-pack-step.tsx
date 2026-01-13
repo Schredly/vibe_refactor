@@ -45,7 +45,7 @@ function PromptCard({
     setIsEditing(false);
   };
 
-  const isMaster = prompt.sequence === 99 || prompt.title.toLowerCase().includes("master");
+  const isMaster = prompt.sequence === 99 || prompt.title?.toLowerCase().includes("master");
 
   return (
     <Card className={cn("bg-muted/30", isMaster && "border-primary/30 bg-primary/5")}>
@@ -59,7 +59,7 @@ function PromptCard({
             )}
             <div className="min-w-0">
               <CardTitle className="text-sm font-medium truncate">
-                {isMaster ? "Master Prompt" : prompt.title}
+                {isMaster ? "Master Prompt" : (prompt.title || `Prompt ${prompt.sequence}`)}
               </CardTitle>
               {prompt.roles && prompt.roles.length > 0 && (
                 <div className="flex items-center gap-1 mt-1">
