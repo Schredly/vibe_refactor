@@ -190,7 +190,7 @@ export function GenerateBuildPackStep({
   
   // Separate sequential prompts from master prompt
   const sequentialPrompts = sortedPrompts.filter(p => (p.sequence || 0) < 99);
-  const masterPromptBundle = sortedPrompts.find(p => (p.sequence || 0) === 99 || p.title.toLowerCase().includes("master"));
+  const masterPromptBundle = sortedPrompts.find(p => (p.sequence || 0) === 99 || p.title?.toLowerCase().includes("master"));
 
   const handleGenerate = async () => {
     if (!detailedSummary) return;
