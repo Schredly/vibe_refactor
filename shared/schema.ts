@@ -119,6 +119,61 @@ export const defaultLLMSettings: LLMSettings = {
   useReplitIntegration: true,
 };
 
+// Vibe Coding Platform schema - target platforms for generated prompts
+export const vibeCodingPlatformSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  isDefault: z.boolean().default(false),
+  isBuiltIn: z.boolean().default(false), // Built-in platforms can't be deleted
+});
+
+export type VibeCodingPlatform = z.infer<typeof vibeCodingPlatformSchema>;
+
+export const vibeCodingSettingsSchema = z.object({
+  platforms: z.array(vibeCodingPlatformSchema),
+  selectedPlatformId: z.string(),
+});
+
+export type VibeCodingSettings = z.infer<typeof vibeCodingSettingsSchema>;
+
+// Default vibe coding platforms
+export const defaultVibeCodingPlatforms: VibeCodingPlatform[] = [
+  {
+    id: "replit",
+    name: "Replit Agent",
+    description: "AI-powered development on Replit",
+    isDefault: true,
+    isBuiltIn: true,
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    description: "AI-first code editor",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "bolt",
+    name: "Bolt.new",
+    description: "StackBlitz AI coding assistant",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "lovable",
+    name: "Lovable",
+    description: "AI app builder",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+];
+
+export const defaultVibeCodingSettings: VibeCodingSettings = {
+  platforms: defaultVibeCodingPlatforms,
+  selectedPlatformId: "replit",
+};
+
 // Project schema - main data model
 export const projectSchema = z.object({
   id: z.string(),
