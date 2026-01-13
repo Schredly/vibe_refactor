@@ -7,8 +7,17 @@ Vibe Refactor is a wizard-based application that helps users capture MVP require
 - **Frontend**: React + Vite + TypeScript
 - **UI Components**: Shadcn/ui with Tailwind CSS
 - **Backend**: Express.js
-- **AI**: OpenAI via Replit AI Integrations (gpt-5.1)
+- **AI**: Configurable LLM provider (OpenAI, Anthropic, or custom OpenAI-compatible APIs)
 - **Storage**: In-memory (MemStorage) with localStorage sync on frontend
+
+## LLM Settings
+Users can configure the AI provider via the Settings dialog (accessible from the header):
+- **Provider**: OpenAI (default via Replit integration), Anthropic, or Custom
+- **Model**: Selectable based on provider (e.g., gpt-5.1, gpt-4.5-preview, claude-sonnet-4-20250514)
+- **Custom API Key**: Optional - uses Replit integration by default
+- **Custom Base URL**: For custom OpenAI-compatible endpoints
+
+Settings are stored in localStorage and sent with each API request.
 
 ## Project Structure
 ```
@@ -23,6 +32,7 @@ client/
 │   │   │   └── create-app-step.tsx
 │   │   ├── app-sidebar.tsx   # Project sidebar
 │   │   ├── wizard-progress.tsx
+│   │   ├── settings-dialog.tsx  # LLM settings dialog
 │   │   └── theme-toggle.tsx
 │   ├── hooks/
 │   │   ├── use-projects.ts   # Project state management
@@ -138,9 +148,21 @@ Response: { cleanedText: string }
 ```
 
 ### Error Handling
-- Server-side 45-60s timeout for OpenAI calls (varies by endpoint complexity)
+- Server-side 45-90s timeout for LLM calls (varies by endpoint complexity)
 - Automatic fallback to mock data when AI fails or times out
-- Client-side 60-90s timeout with error toast notifications
+- Client-side 60-100s timeout with error toast notifications
+- Falls back to Replit AI integration when no custom settings provided
+
+### LLM Settings
+All AI endpoints accept optional `llmSettings` in request body:
+```typescript
+llmSettings?: {
+  provider: "openai" | "anthropic" | "custom",
+  model: string,
+  apiKey?: string,
+  baseUrl?: string
+}
+```
 
 ## Running the App
 The app runs on port 5000 with `npm run dev`.

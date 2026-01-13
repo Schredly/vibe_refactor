@@ -2,8 +2,27 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, type LLMSettings } from "@shared/schema";
 import { z } from "zod";
+
+// Types for unified LLM interface
+interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+interface ChatCompletionOptions {
+  messages: ChatMessage[];
+  maxTokens: number;
+  jsonMode?: boolean;
+}
+
+interface LLMClient {
+  provider: "openai" | "anthropic";
+  model: string;
+  chat: (options: ChatCompletionOptions) => Promise<string | null>;
+}
 
 // Default OpenAI client using Replit integration
 let defaultOpenai: OpenAI | null = null;
@@ -23,26 +42,138 @@ if (hasOpenAIConfig) {
   }
 }
 
-// Create OpenAI client based on LLM settings
+// Create unified LLM client based on settings
+function getLLMClient(settings?: LLMSettings): LLMClient | null {
+  // If no settings or using Replit integration with OpenAI
+  if (!settings || (settings.provider === "openai" && settings.useReplitIntegration)) {
+    if (!defaultOpenai) return null;
+    
+    return {
+      provider: "openai",
+      model: "gpt-5.1",
+      chat: async (options: ChatCompletionOptions) => {
+        const response = await defaultOpenai!.chat.completions.create({
+          model: "gpt-5.1",
+          messages: options.messages,
+          max_completion_tokens: options.maxTokens,
+          ...(options.jsonMode && { response_format: { type: "json_object" } }),
+        });
+        return response.choices[0]?.message?.content ?? null;
+      }
+    };
+  }
+
+  // Anthropic provider
+  if (settings.provider === "anthropic" && settings.apiKey) {
+    try {
+      const anthropic = new Anthropic({ apiKey: settings.apiKey });
+      const model = settings.model || "claude-sonnet-4-20250514";
+      
+      // Anthropic has lower max token limits than OpenAI
+      const ANTHROPIC_MAX_TOKENS = 8192;
+      
+      return {
+        provider: "anthropic",
+        model,
+        chat: async (options: ChatCompletionOptions) => {
+          // Separate system message from conversation
+          const systemMessage = options.messages.find(m => m.role === "system")?.content || "";
+          const userMessages = options.messages.filter(m => m.role !== "system");
+          
+          // Clamp maxTokens to Anthropic's limits
+          const clampedTokens = Math.min(options.maxTokens, ANTHROPIC_MAX_TOKENS);
+          
+          const response = await anthropic.messages.create({
+            model,
+            max_tokens: clampedTokens,
+            system: systemMessage,
+            messages: userMessages.map(m => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })),
+          });
+          
+          const textBlock = response.content.find(c => c.type === "text");
+          return textBlock?.type === "text" ? textBlock.text : null;
+        }
+      };
+    } catch (error) {
+      console.warn("Failed to create Anthropic client:", error);
+      return null;
+    }
+  }
+
+  // OpenAI or Custom (OpenAI-compatible) provider
+  if (settings.apiKey) {
+    try {
+      const baseUrl = settings.provider === "custom" && settings.baseUrl 
+        ? settings.baseUrl 
+        : settings.provider === "openai"
+          ? "https://api.openai.com/v1"
+          : undefined;
+
+      const client = new OpenAI({
+        apiKey: settings.apiKey,
+        baseURL: baseUrl,
+      });
+      
+      const model = settings.model || "gpt-4o";
+      
+      return {
+        provider: "openai",
+        model,
+        chat: async (options: ChatCompletionOptions) => {
+          const response = await client.chat.completions.create({
+            model,
+            messages: options.messages,
+            max_completion_tokens: options.maxTokens,
+            ...(options.jsonMode && { response_format: { type: "json_object" } }),
+          });
+          return response.choices[0]?.message?.content ?? null;
+        }
+      };
+    } catch (error) {
+      console.warn("Failed to create custom OpenAI client:", error);
+      return null;
+    }
+  }
+
+  // Fallback to default Replit integration
+  if (defaultOpenai) {
+    return {
+      provider: "openai",
+      model: "gpt-5.1",
+      chat: async (options: ChatCompletionOptions) => {
+        const response = await defaultOpenai!.chat.completions.create({
+          model: "gpt-5.1",
+          messages: options.messages,
+          max_completion_tokens: options.maxTokens,
+          ...(options.jsonMode && { response_format: { type: "json_object" } }),
+        });
+        return response.choices[0]?.message?.content ?? null;
+      }
+    };
+  }
+
+  return null;
+}
+
+// Legacy function for backward compatibility - kept for routes that haven't been migrated yet
 function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model: string } {
   // If no settings or using Replit integration with OpenAI
   if (!settings || (settings.provider === "openai" && settings.useReplitIntegration)) {
     return { 
       client: defaultOpenai, 
-      model: "gpt-5.1" // Replit integration model
+      model: "gpt-5.1"
     };
   }
 
-  // Custom API key provided
-  if (settings.apiKey) {
+  // For non-Anthropic providers with custom API key
+  if (settings.apiKey && settings.provider !== "anthropic") {
     try {
-      const baseUrl = settings.provider === "anthropic" 
-        ? "https://api.anthropic.com/v1"
-        : settings.provider === "custom" && settings.baseUrl 
-          ? settings.baseUrl 
-          : settings.provider === "openai"
-            ? "https://api.openai.com/v1"
-            : undefined;
+      const baseUrl = settings.provider === "custom" && settings.baseUrl 
+        ? settings.baseUrl 
+        : "https://api.openai.com/v1";
 
       const client = new OpenAI({
         apiKey: settings.apiKey,
@@ -401,10 +532,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No answered questions provided" });
       }
 
-      const { client: openai, model } = getOpenAIClient(llmSettings);
+      const llmClient = getLLMClient(llmSettings);
       
-      if (!openai) {
-        console.log("OpenAI not configured, returning mock detailed summary");
+      if (!llmClient) {
+        console.log("LLM not configured, returning mock detailed summary");
         return res.json(generateMockDetailedSummary(projectName, questions));
       }
 
@@ -465,37 +596,41 @@ ${qaText}
 Please analyze this and produce a comprehensive MVP plan with all sections filled in based on the user's answers.`;
 
       try {
-        console.log("Calling OpenAI for detailed summary generation...");
+        console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed summary generation...`);
         
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("OpenAI timeout")), 60000)
+        const timeoutPromise = new Promise<string | null>((_, reject) => 
+          setTimeout(() => reject(new Error("LLM timeout")), 60000)
         );
         
-        const openaiPromise = openai.chat.completions.create({
-          model,
+        const llmPromise = llmClient.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 4096,
+          maxTokens: 4096,
+          jsonMode: llmClient.provider === "openai", // Only OpenAI supports json_object mode
         });
 
-        const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
-
-        const content = response.choices[0]?.message?.content;
-        console.log("OpenAI detailed summary response received, content length:", content?.length || 0);
+        const content = await Promise.race([llmPromise, timeoutPromise]);
+        console.log("LLM detailed summary response received, content length:", content?.length || 0);
         
         if (!content) {
-          console.log("Empty OpenAI response, using fallback");
+          console.log("Empty LLM response, using fallback");
           return res.json(generateMockDetailedSummary(projectName, questions));
         }
 
-        const summary = JSON.parse(content);
+        // Parse JSON, handling possible markdown code blocks from Anthropic
+        let jsonContent = content;
+        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[1].trim();
+        }
+
+        const summary = JSON.parse(jsonContent);
         summary.lastGeneratedAt = new Date().toISOString();
         return res.json(summary);
       } catch (aiError) {
-        console.error("OpenAI API error:", aiError);
+        console.error("LLM API error:", aiError);
         console.log("Falling back to mock detailed summary");
         return res.json(generateMockDetailedSummary(projectName, questions));
       }
@@ -513,10 +648,10 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
       const validatedData = generatePromptsRequestSchema.parse(req.body);
       const { projectName, detailedSummary, questions, llmSettings } = validatedData;
 
-      const { client: openai, model } = getOpenAIClient(llmSettings);
+      const llmClient = getLLMClient(llmSettings);
       
-      if (!openai) {
-        console.log("OpenAI not configured, returning mock prompts");
+      if (!llmClient) {
+        console.log("LLM not configured, returning mock prompts");
         return res.json(generateMockPrompts(projectName));
       }
 
@@ -647,37 +782,41 @@ Each prompt should be so detailed that:
 Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.`;
 
       try {
-        console.log("Calling OpenAI for detailed prompt generation...");
+        console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed prompt generation...`);
         
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("OpenAI timeout")), 90000)
+        const timeoutPromise = new Promise<string | null>((_, reject) => 
+          setTimeout(() => reject(new Error("LLM timeout")), 90000)
         );
         
-        const openaiPromise = openai.chat.completions.create({
-          model,
+        const llmPromise = llmClient.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          response_format: { type: "json_object" },
-          max_completion_tokens: 16384,
+          maxTokens: 16384,
+          jsonMode: llmClient.provider === "openai",
         });
 
-        const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
-
-        const content = response.choices[0]?.message?.content;
-        console.log("OpenAI response received, content length:", content?.length || 0);
+        const content = await Promise.race([llmPromise, timeoutPromise]);
+        console.log("LLM response received, content length:", content?.length || 0);
         
         if (!content) {
-          console.log("Empty OpenAI response, using fallback");
+          console.log("Empty LLM response, using fallback");
           return res.json(generateMockPrompts(projectName));
         }
 
-        const result = JSON.parse(content);
+        // Parse JSON, handling possible markdown code blocks from Anthropic
+        let jsonContent = content;
+        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[1].trim();
+        }
+
+        const result = JSON.parse(jsonContent);
         console.log("Parsed prompts count:", result.prompts?.length || 0);
         return res.json(result);
       } catch (aiError) {
-        console.error("OpenAI API error:", aiError);
+        console.error("LLM API error:", aiError);
         console.log("Falling back to mock prompts");
         return res.json(generateMockPrompts(projectName));
       }
