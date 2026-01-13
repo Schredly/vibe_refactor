@@ -8,7 +8,8 @@ Vibe Refactor is a wizard-based application that helps users capture MVP require
 - **UI Components**: Shadcn/ui with Tailwind CSS
 - **Backend**: Express.js
 - **AI**: Configurable LLM provider (OpenAI, Anthropic, or custom OpenAI-compatible APIs)
-- **Storage**: In-memory (MemStorage) with localStorage sync on frontend
+- **Database**: PostgreSQL (Neon-backed) for LLM call logging
+- **Storage**: HybridStorage - In-memory for projects with PostgreSQL for LLM logs
 
 ## LLM Settings
 Users can configure the AI provider via the Settings dialog (accessible from the header):
@@ -33,6 +34,7 @@ client/
 │   │   ├── app-sidebar.tsx   # Project sidebar
 │   │   ├── wizard-progress.tsx
 │   │   ├── settings-dialog.tsx  # LLM settings dialog
+│   │   ├── logs-dialog.tsx      # LLM logs viewer
 │   │   └── theme-toggle.tsx
 │   ├── hooks/
 │   │   ├── use-projects.ts   # Project state management
@@ -146,6 +148,27 @@ Cleans up speech-to-text transcriptions.
 Request: { text: string }
 Response: { cleanedText: string }
 ```
+
+### LLM Logs API
+All LLM calls are logged to PostgreSQL for auditability.
+
+```typescript
+GET /api/logs?limit=100    // Get recent logs
+GET /api/logs/project/:id  // Get logs by project
+DELETE /api/logs           // Clear all logs
+```
+
+Each log entry captures:
+- `stepName`: Which endpoint was called (summarize, generatePrompts, etc.)
+- `provider`: LLM provider used (openai, anthropic, custom)
+- `model`: Model name (gpt-4.5-preview, claude-sonnet-4, etc.)
+- `inputMessages`: Full request messages sent to LLM
+- `outputContent`: Full response from LLM
+- `durationMs`: Time taken in milliseconds
+- `status`: success, error, or timeout
+- `errorMessage`: Error details if failed
+
+Access logs via the "View Logs" button in the header.
 
 ### Error Handling
 - Server-side 45-90s timeout for LLM calls (varies by endpoint complexity)
