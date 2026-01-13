@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, Edit3, Check, X, FileText, Sparkles } from "lucide-react";
+import { Plus, Trash2, Edit3, Check, X, FileText, Sparkles, Download } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -25,14 +25,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import type { Project } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { allDemoProjects, createDemoProject } from "@/lib/demo-data";
 
 interface AppSidebarProps {
   projects: Project[];
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
-  onCreateProject: () => void;
+  onCreateProject: (data?: Partial<Project>) => Project;
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
 }
@@ -47,6 +56,14 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+
+  const handleLoadDemo = (demoKey: string) => {
+    const demo = allDemoProjects.find((d) => d.key === demoKey);
+    if (demo) {
+      const project = createDemoProject(demo.data);
+      onCreateProject(project);
+    }
+  };
 
   const handleStartEdit = (project: Project) => {
     setEditingId(project.id);
@@ -89,7 +106,7 @@ export function AppSidebar({
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={onCreateProject}
+              onClick={() => onCreateProject()}
               data-testid="button-new-project"
             >
               <Plus className="h-4 w-4" />
@@ -104,7 +121,7 @@ export function AppSidebar({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={onCreateProject}
+                    onClick={() => onCreateProject()}
                     data-testid="button-create-first-project"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -212,7 +229,28 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <p className="text-xs text-muted-foreground text-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full" data-testid="button-load-demo">
+              <Download className="w-4 h-4 mr-2" />
+              Load Demo Data
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-56">
+            <DropdownMenuLabel>Sample Projects</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {allDemoProjects.map((demo) => (
+              <DropdownMenuItem
+                key={demo.key}
+                onClick={() => handleLoadDemo(demo.key)}
+                data-testid={`button-demo-${demo.key}`}
+              >
+                {demo.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <p className="text-xs text-muted-foreground text-center mt-2">
           Capture requirements with voice
         </p>
       </SidebarFooter>
