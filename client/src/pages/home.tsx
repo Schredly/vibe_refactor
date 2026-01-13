@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { WizardProgress } from "@/components/wizard-progress";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { LogsDialog } from "@/components/logs-dialog";
 import { LoadScriptStep } from "@/components/steps/load-script-step";
 import { CaptureAnswersStep } from "@/components/steps/capture-answers-step";
 import { ReviewSummarizeStep } from "@/components/steps/review-summarize-step";
@@ -178,6 +179,7 @@ export default function Home() {
               )}
             </div>
             <div className="flex items-center gap-1">
+              <LogsDialog />
               <SettingsDialog />
               <ThemeToggle />
             </div>

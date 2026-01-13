@@ -954,6 +954,12 @@ ${questionsList}
 
 Create a brief context summary for this project.`;
 
+      const contextMessages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      const contextStartTime = Date.now();
+
       try {
         console.log("Calling OpenAI for context generation...");
         
@@ -963,16 +969,25 @@ Create a brief context summary for this project.`;
         
         const openaiPromise = openai.chat.completions.create({
           model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages: contextMessages,
           max_completion_tokens: 300,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+        const durationMs = Date.now() - contextStartTime;
 
         const content = response.choices[0]?.message?.content;
+        
+        await logLlmCall({
+          stepName: "generateContext",
+          provider: "openai",
+          model,
+          inputMessages: contextMessages,
+          outputContent: content || null,
+          durationMs,
+          status: content ? "success" : "error",
+          errorMessage: content ? undefined : "Empty response",
+        });
         
         if (!content) {
           return res.json({
@@ -986,7 +1001,20 @@ Create a brief context summary for this project.`;
           generatedAt: new Date().toISOString(),
         });
       } catch (aiError) {
+        const durationMs = Date.now() - contextStartTime;
         console.error("LLM API error for context:", aiError);
+        
+        await logLlmCall({
+          stepName: "generateContext",
+          provider: "openai",
+          model,
+          inputMessages: contextMessages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message.includes("timeout") ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
         return res.json({
           systemPrompt: `You are helping capture requirements for an MVP called "${projectName}". The user is answering questions about their project.`,
           generatedAt: new Date().toISOString(),
@@ -1073,6 +1101,12 @@ USER'S ANSWER: ${userAnswer}
 
 Evaluate if this answer provides enough specific detail for THIS question only. Do not ask for information that will be covered in later questions.`;
 
+      const assistMessages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      const assistStartTime = Date.now();
+
       try {
         console.log("Calling OpenAI for agent assist...");
         
@@ -1082,17 +1116,26 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
         
         const openaiPromise = openai.chat.completions.create({
           model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages: assistMessages,
           response_format: { type: "json_object" },
           max_completion_tokens: 300,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+        const durationMs = Date.now() - assistStartTime;
 
         const content = response.choices[0]?.message?.content;
+        
+        await logLlmCall({
+          stepName: "agentAssist",
+          provider: "openai",
+          model,
+          inputMessages: assistMessages,
+          outputContent: content || null,
+          durationMs,
+          status: content ? "success" : "error",
+          errorMessage: content ? undefined : "Empty response",
+        });
         
         if (!content) {
           return res.json({
@@ -1104,7 +1147,20 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
         const result = JSON.parse(content);
         return res.json(result);
       } catch (aiError) {
+        const durationMs = Date.now() - assistStartTime;
         console.error("LLM API error for agent assist:", aiError);
+        
+        await logLlmCall({
+          stepName: "agentAssist",
+          provider: "openai",
+          model,
+          inputMessages: assistMessages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message.includes("timeout") ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
         return res.json({
           isSpecificEnough: false,
           suggestions: ["Try adding more specific details to your answer."],
@@ -1150,6 +1206,12 @@ IMPORTANT RULES:
 - Do not remove any substantive content
 - Return ONLY the cleaned text, nothing else`;
 
+      const cleanMessages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: text },
+      ];
+      const cleanStartTime = Date.now();
+
       try {
         console.log("Calling OpenAI to clean text...");
         
@@ -1159,16 +1221,25 @@ IMPORTANT RULES:
         
         const openaiPromise = openai.chat.completions.create({
           model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: text },
-          ],
+          messages: cleanMessages,
           max_completion_tokens: 1000,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+        const durationMs = Date.now() - cleanStartTime;
 
         const cleanedText = response.choices[0]?.message?.content?.trim();
+        
+        await logLlmCall({
+          stepName: "cleanText",
+          provider: "openai",
+          model,
+          inputMessages: cleanMessages,
+          outputContent: cleanedText || null,
+          durationMs,
+          status: cleanedText ? "success" : "error",
+          errorMessage: cleanedText ? undefined : "Empty response",
+        });
         
         if (!cleanedText) {
           return res.json({ cleanedText: text });
@@ -1176,7 +1247,20 @@ IMPORTANT RULES:
 
         return res.json({ cleanedText });
       } catch (aiError) {
+        const durationMs = Date.now() - cleanStartTime;
         console.error("LLM API error for clean text:", aiError);
+        
+        await logLlmCall({
+          stepName: "cleanText",
+          provider: "openai",
+          model,
+          inputMessages: cleanMessages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message.includes("timeout") ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
         return res.json({ cleanedText: text });
       }
     } catch (error) {
@@ -1238,6 +1322,12 @@ Respond in JSON format:
   "industryPractices": ["practice1", "practice2"]
 }`;
 
+      const researchMessages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: `Question: ${currentQuestion}\n\nUser's Answer: ${userAnswer}\n\nProvide research and examples to help make this answer more concrete and well-informed.` },
+      ];
+      const researchStartTime = Date.now();
+
       try {
         console.log("Calling OpenAI for research examples...");
         
@@ -1247,16 +1337,25 @@ Respond in JSON format:
         
         const openaiPromise = openai.chat.completions.create({
           model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Question: ${currentQuestion}\n\nUser's Answer: ${userAnswer}\n\nProvide research and examples to help make this answer more concrete and well-informed.` },
-          ],
+          messages: researchMessages,
           max_completion_tokens: 2000,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
+        const durationMs = Date.now() - researchStartTime;
 
         const content = response.choices[0]?.message?.content?.trim();
+        
+        await logLlmCall({
+          stepName: "researchExamples",
+          provider: "openai",
+          model,
+          inputMessages: researchMessages,
+          outputContent: content || null,
+          durationMs,
+          status: content ? "success" : "error",
+          errorMessage: content ? undefined : "Empty response",
+        });
         
         if (!content) {
           throw new Error("Empty response from LLM");
@@ -1276,7 +1375,20 @@ Respond in JSON format:
           industryPractices: parsed.industryPractices || [],
         });
       } catch (aiError) {
+        const durationMs = Date.now() - researchStartTime;
         console.error("OpenAI API error for research examples:", aiError);
+        
+        await logLlmCall({
+          stepName: "researchExamples",
+          provider: "openai",
+          model,
+          inputMessages: researchMessages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message.includes("timeout") ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
         return res.json({
           insights: ["Research temporarily unavailable. Try again in a moment."],
           concreteExamples: [],
