@@ -494,35 +494,50 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         ? `\nAI/Agent Architecture:\n${detailedSummary.aiArchitecture.roles.map((r: { name: string; responsibilities: string[] }) => `- ${r.name}: ${r.responsibilities.join(", ")}`).join("\n")}`
         : "";
 
-      const systemPrompt = `You are an expert software architect generating a "Build Pack" - a set of 8-10 sequential prompts that can be fed to Replit Agent to build an MVP incrementally.
+      const systemPrompt = `You are an expert software architect generating a "Build Pack" for vibe coding solutions like Replit Agent. 
 
-CRITICAL FORMAT REQUIREMENTS:
-1. Generate 8-10 sequential prompts numbered 1 through N
-2. Each prompt should be SELF-CONTAINED and ACTIONABLE - it tells the AI exactly what to build in that step
-3. Use DETAILED BULLET POINTS with specific requirements (field names, validation rules, UI elements)
-4. Include **bold** section headers within each prompt
-5. End each prompt with a clear **Deliverable** section stating what should work after that prompt
-6. Do NOT produce detailed database schemas - keep storage requirements high-level
-7. Be SPECIFIC: name actual screens, buttons, fields, and actions
+Your task is to transform the user's detailed MVP summary into 8-10 HIGHLY DETAILED, SEQUENTIAL prompts that an AI coding agent can execute step-by-step to build a complete, working MVP.
 
-PROMPT SEQUENCE STRUCTURE (adapt based on the actual MVP):
-1. Project Setup + Core UX Skeleton (auth, routing, page shells)
-2. Main Dashboard (metrics, filters, key actions)
-3. Foundational Data CRUD (core entities management)
-4. Primary Feature Workflow (main user journey)
-5. Secondary Features (additional screens/workflows)
-6. Integrations (notifications, external APIs if needed)
-7. Reporting/Analytics (if applicable)
-8. Security + Access Control + Guardrails
-9. Polish + QA Checklist (end-to-end flow verification)
-10. Master Prompt (consolidated single prompt)
+CRITICAL: Each prompt must be EXHAUSTIVELY DETAILED. Vibe coding agents need:
+- EXACT screen names and their specific purposes
+- COMPLETE lists of UI elements (every button, input, dropdown, table column)
+- SPECIFIC field names with data types, validation rules, required/optional status
+- PRECISE user flows with step-by-step interactions
+- CONCRETE examples of data and edge cases
+- EXPLICIT styling requirements (colors, spacing, responsive breakpoints)
 
-EACH PROMPT MUST INCLUDE:
-- **Core roles** section defining user types and their access
-- Specific **screen names** and their purpose
-- **UI requirements** with actual element names (buttons, forms, tables)
-- **Field specifications** where relevant (required/optional, validation)
-- **Deliverable** section at the end
+PROMPT STRUCTURE FOR EACH:
+1. **Overview** - What this prompt builds and why it matters
+2. **User Roles** - Who can access this feature and their permissions
+3. **Screens/Components** - Detailed breakdown of each UI element
+4. **Data Model** - Fields, relationships, and validation rules
+5. **User Interactions** - Step-by-step flow of what happens when user clicks/types
+6. **Edge Cases** - Empty states, error handling, loading states
+7. **Acceptance Criteria** - Specific testable outcomes
+
+SEQUENCE (adapt to the actual MVP):
+1. **Foundation**: Project setup, auth system, navigation shell, global layout
+2. **Dashboard/Home**: Primary landing page with metrics, quick actions, overview
+3. **Core Entity CRUD**: Main data management (create/read/update/delete)
+4. **Primary Workflow**: The main user journey from start to finish
+5. **Secondary Features**: Additional screens, supporting workflows
+6. **Data Display**: Lists, tables, filters, search, sorting, pagination
+7. **Integrations**: External APIs, notifications, file uploads
+8. **Reports/Analytics**: Charts, exports, summaries
+9. **Polish**: Error handling, loading states, empty states, responsive design
+10. **Master Prompt**: Complete consolidated prompt for single-shot builds
+
+EXAMPLE LEVEL OF DETAIL:
+Instead of: "Add a form to create users"
+Write: "**Create User Form** at /admin/users/new with fields:
+- Full Name (text, required, 2-100 chars, placeholder: 'Enter full name')
+- Email (email, required, must be unique, validate format)
+- Role (dropdown: 'Admin', 'Manager', 'User', default: 'User')
+- Status (toggle: Active/Inactive, default: Active)
+- Phone (tel, optional, format: (XXX) XXX-XXXX)
+Buttons: 'Save User' (primary, validates then saves, shows success toast), 'Cancel' (ghost, returns to user list)
+On save success: redirect to /admin/users with toast 'User created successfully'
+On validation error: highlight invalid fields with red border and error message below each"
 
 Output as JSON:
 {
@@ -530,46 +545,64 @@ Output as JSON:
     {
       "id": "1",
       "sequence": 1,
-      "category": "Project Setup",
-      "title": "Project Setup + Core UX Skeleton",
+      "category": "Foundation",
+      "title": "Project Foundation + Auth System",
       "roles": ["User", "Admin"],
-      "content": "Full detailed prompt text with **bold headers**, bullet points, field specs...",
-      "deliverable": "What should work after this prompt is completed",
+      "content": "Extremely detailed prompt with **bold section headers**, specific field names, exact button labels, complete validation rules, error messages, success states...",
+      "deliverable": "Specific testable outcome - what the user can do when this is complete",
       "collapsedByDefault": false
     }
   ]
 }`;
 
-      const userPrompt = `Project: ${projectName}
+      const userPrompt = `# PROJECT: ${projectName}
 
-MVP Definition:
+## ONE-SENTENCE MVP DEFINITION
 ${detailedSummary.oneSentenceDefinition}
 
-Features to Include:
+## MVP SCOPE
+
+### MUST INCLUDE (Build These):
 ${detailedSummary.mvpScope.includes.map((f: string) => `- ${f}`).join("\n")}
 
-Features to Defer (V1 Cut List):
+### EXPLICITLY EXCLUDED (Do NOT Build):
 ${detailedSummary.mvpScope.excludes.map((f: string) => `- ${f}`).join("\n")}
 
-Screens:
-${screenSpecs}
+## SCREENS (User has defined these - include ALL details)
 
-User Flow:
+${detailedSummary.screens.map((s) => `### ${s.name}
+**Purpose:** ${s.purpose}
+**UI Elements:** ${s.uiElements.join(", ")}`).join("\n\n")}
+
+## USER FLOW (Step-by-step journey)
 ${detailedSummary.userFlow.map((step: string, i: number) => `${i + 1}. ${step}`).join("\n")}
 ${aiArchInfo}
 
-Data Sources (MVP): ${detailedSummary.dataSources.mvpSources.join(", ")}
+## DATA SOURCES
+**MVP Sources:** ${detailedSummary.dataSources.mvpSources.join(", ")}
+${detailedSummary.dataSources.futureSources ? `**Future Sources (do not implement):** ${detailedSummary.dataSources.futureSources.join(", ")}` : ""}
 
-Legal Guardrails:
+## LEGAL GUARDRAILS & SAFETY
 ${detailedSummary.legalGuardrails.map((g: string) => `- ${g}`).join("\n")}
 
-User's Build Prompt (use as reference):
+## USER'S BUILD PROMPT (Their vision - use as primary reference)
 ${detailedSummary.buildPrompt}
 
-Original Q&A for additional context:
+## ORIGINAL Q&A (Additional context from discovery)
 ${qaText}
 
-Generate a comprehensive Build Pack with 8-10 detailed, sequential prompts. Each prompt should be specific enough that Replit Agent can build that piece without additional clarification. Include actual screen names, field names, button labels, and validation rules based on the information above.`;
+---
+
+INSTRUCTIONS: Use ALL the information above to generate 8-10 HIGHLY DETAILED sequential prompts for Replit Agent. 
+
+Each prompt should be so detailed that:
+1. A vibe coding agent can build it WITHOUT asking follow-up questions
+2. Field names, button labels, validation rules are EXPLICIT
+3. User interactions are STEP-BY-STEP with expected outcomes
+4. Error states, empty states, and edge cases are DEFINED
+5. The user can test the deliverable immediately after each prompt
+
+Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.`;
 
       try {
         console.log("Calling OpenAI for detailed prompt generation...");
@@ -585,7 +618,7 @@ Generate a comprehensive Build Pack with 8-10 detailed, sequential prompts. Each
             { role: "user", content: userPrompt },
           ],
           response_format: { type: "json_object" },
-          max_completion_tokens: 8192,
+          max_completion_tokens: 16384,
         });
 
         const response = await Promise.race([openaiPromise, timeoutPromise]) as Awaited<typeof openaiPromise>;
