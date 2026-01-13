@@ -2,17 +2,18 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
-import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, type LLMSettings } from "@shared/schema";
 import { z } from "zod";
 
-let openai: OpenAI | null = null;
+// Default OpenAI client using Replit integration
+let defaultOpenai: OpenAI | null = null;
 
 const hasOpenAIConfig = !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL);
 console.log("OpenAI configuration available:", hasOpenAIConfig);
 
 if (hasOpenAIConfig) {
   try {
-    openai = new OpenAI({
+    defaultOpenai = new OpenAI({
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
@@ -20,6 +21,43 @@ if (hasOpenAIConfig) {
   } catch (error) {
     console.warn("Failed to initialize OpenAI client:", error);
   }
+}
+
+// Create OpenAI client based on LLM settings
+function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model: string } {
+  // If no settings or using Replit integration with OpenAI
+  if (!settings || (settings.provider === "openai" && settings.useReplitIntegration)) {
+    return { 
+      client: defaultOpenai, 
+      model: "gpt-5.1" // Replit integration model
+    };
+  }
+
+  // Custom API key provided
+  if (settings.apiKey) {
+    try {
+      const baseUrl = settings.provider === "anthropic" 
+        ? "https://api.anthropic.com/v1"
+        : settings.provider === "custom" && settings.baseUrl 
+          ? settings.baseUrl 
+          : settings.provider === "openai"
+            ? "https://api.openai.com/v1"
+            : undefined;
+
+      const client = new OpenAI({
+        apiKey: settings.apiKey,
+        baseURL: baseUrl,
+      });
+      
+      return { client, model: settings.model || "gpt-4o" };
+    } catch (error) {
+      console.warn("Failed to create custom OpenAI client:", error);
+      return { client: null, model: settings.model || "gpt-4o" };
+    }
+  }
+
+  // Fallback to default
+  return { client: defaultOpenai, model: "gpt-5.1" };
 }
 
 function generateMockDetailedSummary(projectName: string, questions: { text: string; answerText?: string }[]) {
@@ -355,7 +393,7 @@ export async function registerRoutes(
   app.post("/api/summarize", async (req, res) => {
     try {
       const validatedData = summarizeRequestSchema.parse(req.body);
-      const { projectName, questions } = validatedData;
+      const { projectName, questions, llmSettings } = validatedData;
 
       const answeredQuestions = questions.filter((q) => q.answerText);
       
@@ -363,6 +401,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No answered questions provided" });
       }
 
+      const { client: openai, model } = getOpenAIClient(llmSettings);
+      
       if (!openai) {
         console.log("OpenAI not configured, returning mock detailed summary");
         return res.json(generateMockDetailedSummary(projectName, questions));
@@ -432,7 +472,7 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         );
         
         const openaiPromise = openai.chat.completions.create({
-          model: "gpt-5.1",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -471,8 +511,10 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
   app.post("/api/generatePrompts", async (req, res) => {
     try {
       const validatedData = generatePromptsRequestSchema.parse(req.body);
-      const { projectName, detailedSummary, questions } = validatedData;
+      const { projectName, detailedSummary, questions, llmSettings } = validatedData;
 
+      const { client: openai, model } = getOpenAIClient(llmSettings);
+      
       if (!openai) {
         console.log("OpenAI not configured, returning mock prompts");
         return res.json(generateMockPrompts(projectName));
@@ -612,7 +654,7 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
         );
         
         const openaiPromise = openai.chat.completions.create({
-          model: "gpt-5.1",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -659,6 +701,8 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
       }
 
       // Generate a mock context if OpenAI is not available
+      const { client: openai, model } = getOpenAIClient();
+      
       if (!openai) {
         console.log("OpenAI not configured, returning mock context");
         return res.json({
@@ -688,7 +732,7 @@ Create a brief context summary for this project.`;
         );
         
         const openaiPromise = openai.chat.completions.create({
-          model: "gpt-5.1",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -712,7 +756,7 @@ Create a brief context summary for this project.`;
           generatedAt: new Date().toISOString(),
         });
       } catch (aiError) {
-        console.error("OpenAI API error for context:", aiError);
+        console.error("LLM API error for context:", aiError);
         return res.json({
           systemPrompt: `You are helping capture requirements for an MVP called "${projectName}". The user is answering questions about their project.`,
           generatedAt: new Date().toISOString(),
@@ -742,8 +786,10 @@ Create a brief context summary for this project.`;
       }
 
       // Return mock suggestions if OpenAI is not available
+      const { client: openai, model } = getOpenAIClient();
+      
       if (!openai) {
-        console.log("OpenAI not configured, returning mock suggestions");
+        console.log("LLM not configured, returning mock suggestions");
         return res.json({
           isSpecificEnough: userAnswer.length > 50,
           suggestions: [
@@ -805,7 +851,7 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
         );
         
         const openaiPromise = openai.chat.completions.create({
-          model: "gpt-5.1",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
@@ -828,7 +874,7 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
         const result = JSON.parse(content);
         return res.json(result);
       } catch (aiError) {
-        console.error("OpenAI API error for agent assist:", aiError);
+        console.error("LLM API error for agent assist:", aiError);
         return res.json({
           isSpecificEnough: false,
           suggestions: ["Try adding more specific details to your answer."],
@@ -853,9 +899,11 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
         return res.json({ cleanedText: "" });
       }
 
-      // Return original text if OpenAI is not available
+      // Return original text if LLM is not available
+      const { client: openai, model } = getOpenAIClient();
+      
       if (!openai) {
-        console.log("OpenAI not configured, returning original text");
+        console.log("LLM not configured, returning original text");
         return res.json({ cleanedText: text });
       }
 
@@ -880,7 +928,7 @@ IMPORTANT RULES:
         );
         
         const openaiPromise = openai.chat.completions.create({
-          model: "gpt-5.1",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: text },
@@ -898,7 +946,7 @@ IMPORTANT RULES:
 
         return res.json({ cleanedText });
       } catch (aiError) {
-        console.error("OpenAI API error for clean text:", aiError);
+        console.error("LLM API error for clean text:", aiError);
         return res.json({ cleanedText: text });
       }
     } catch (error) {
@@ -916,9 +964,11 @@ IMPORTANT RULES:
       const validatedData = researchExamplesRequestSchema.parse(req.body);
       const { projectName, contextSummary, currentQuestion, userAnswer } = validatedData;
 
-      // Return mock data if OpenAI is not available
+      // Return mock data if LLM is not available
+      const { client: openai, model } = getOpenAIClient();
+      
       if (!openai) {
-        console.log("OpenAI not configured, returning mock research examples");
+        console.log("LLM not configured, returning mock research examples");
         return res.json({
           insights: [
             "Consider how similar solutions in the market approach this problem",
@@ -966,7 +1016,7 @@ Respond in JSON format:
         );
         
         const openaiPromise = openai.chat.completions.create({
-          model: "gpt-5.1",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: `Question: ${currentQuestion}\n\nUser's Answer: ${userAnswer}\n\nProvide research and examples to help make this answer more concrete and well-informed.` },
@@ -979,7 +1029,7 @@ Respond in JSON format:
         const content = response.choices[0]?.message?.content?.trim();
         
         if (!content) {
-          throw new Error("Empty response from OpenAI");
+          throw new Error("Empty response from LLM");
         }
 
         // Parse JSON response

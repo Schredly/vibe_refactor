@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { loadLLMSettings } from "@/components/settings-dialog";
 import type { DetailedSummary, Question, ScreenDefinition } from "@shared/schema";
 
 interface ReviewSummarizeStepProps {
@@ -363,6 +364,8 @@ export function ReviewSummarizeStep({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
+      const llmSettings = loadLLMSettings();
+      
       const response = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -372,6 +375,7 @@ export function ReviewSummarizeStep({
             text: q.text,
             answerText: q.answerText,
           })),
+          llmSettings,
         }),
         signal: controller.signal,
       });

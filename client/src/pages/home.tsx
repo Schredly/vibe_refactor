@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar";
 import { WizardProgress } from "@/components/wizard-progress";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadScriptStep } from "@/components/steps/load-script-step";
 import { CaptureAnswersStep } from "@/components/steps/capture-answers-step";
 import { ReviewSummarizeStep } from "@/components/steps/review-summarize-step";
@@ -176,7 +177,10 @@ export default function Home() {
                 </h2>
               )}
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <SettingsDialog />
+              <ThemeToggle />
+            </div>
           </header>
           
           {activeProject && (

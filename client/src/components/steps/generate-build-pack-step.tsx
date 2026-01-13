@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { loadLLMSettings } from "@/components/settings-dialog";
 import type { PromptBundle, DetailedSummary, Question } from "@shared/schema";
 
 interface GenerateBuildPackStepProps {
@@ -201,6 +202,8 @@ export function GenerateBuildPackStep({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 100000);
 
+      const llmSettings = loadLLMSettings();
+      
       const response = await fetch("/api/generatePrompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -211,6 +214,7 @@ export function GenerateBuildPackStep({
             text: q.text,
             answerText: q.answerText,
           })),
+          llmSettings,
         }),
         signal: controller.signal,
       });
