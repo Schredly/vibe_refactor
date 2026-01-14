@@ -200,7 +200,8 @@ export function GenerateBuildPackStep({
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 100000);
+      // 5 minute timeout to match server-side (6 min) with buffer
+      const timeoutId = setTimeout(() => controller.abort(), 300000);
 
       const llmSettings = loadLLMSettings();
       
