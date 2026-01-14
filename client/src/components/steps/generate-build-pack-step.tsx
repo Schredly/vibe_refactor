@@ -222,15 +222,29 @@ export function GenerateBuildPackStep({
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error("Failed to generate prompts");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Server error response:", response.status, errorData);
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
+      console.log("Response text length:", responseText.length);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse response JSON:", parseError);
+        console.log("First 500 chars:", responseText.substring(0, 500));
+        throw new Error("Invalid JSON response from server");
+      }
       
       if (!data.prompts || !Array.isArray(data.prompts)) {
-        throw new Error("Invalid response format");
+        console.error("Invalid response format:", data);
+        throw new Error("Invalid response format - no prompts array");
       }
 
+      console.log("Received", data.prompts.length, "prompts, first title:", data.prompts[0]?.title);
       onSavePrompts(data.prompts);
 
       toast({
@@ -239,11 +253,12 @@ export function GenerateBuildPackStep({
       });
     } catch (error) {
       console.error("Generate prompts error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Error",
         description: error instanceof Error && error.name === "AbortError" 
           ? "Request timed out. Please try again." 
-          : "Failed to generate Build Pack. Please try again.",
+          : `Failed to generate Build Pack: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {

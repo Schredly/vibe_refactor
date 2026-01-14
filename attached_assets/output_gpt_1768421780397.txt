@@ -1,0 +1,430 @@
+⭐ PROMPT SET FOR BUILDING THE “LEGACY BIO APP” MVP
+PROMPT 1 — Project Setup & Architecture
+
+Create a full-stack web application called Legacy BIO App for tracking biomarker assay samples from intake → processing → result approval.
+
+Requirements:
+
+Backend: Node.js + Express or Python + FastAPI (choose one and scaffold cleanly)
+
+Frontend: React (desktop-first responsive)
+
+Database: PostgreSQL (preferred) or MySQL
+
+Auth: Secure username/password login + role-based access control
+Roles: Technician, Manager, Admin
+
+Use environment-based config and HTTPS-ready structure
+
+Structure the repo for clarity:
+
+/server
+
+/client
+
+Common README with install/run instructions
+
+Include:
+
+Initial user auth endpoints
+
+Basic routing placeholders for all MVP screens:
+/login, /intake, /worklist, /samples/:id, /dashboard
+
+Focus on correctness, security, and auditability over visual polish.
+
+PROMPT 2 — Database Schema & Migrations
+
+Define the relational schema with migrations for:
+
+Users
+
+id (uuid)
+
+email/username (unique)
+
+password_hash
+
+role (Technician | Manager | Admin)
+
+created_at
+
+Samples
+
+id (uuid)
+
+sample_id (string, human ID)
+
+subject_id / patient_id
+
+assay_type
+
+collection_datetime
+
+priority (normal/high)
+
+current_status (RECEIVED, IN_PROCESSING, AWAITING_APPROVAL, APPROVED)
+
+notes (free-text)
+
+received_at
+
+last_updated_at
+
+created_by (FK user)
+
+assigned_to (FK user, nullable)
+
+Status History
+
+id
+
+sample_id
+
+from_status
+
+to_status
+
+note (optional)
+
+changed_by_user_id
+
+changed_at
+
+Audit Events
+
+id
+
+entity_type (sample, status, approval, etc.)
+
+entity_id
+
+action (CREATE_SAMPLE, UPDATE_STATUS, APPROVE_RESULT, etc.)
+
+user_id
+
+timestamp
+
+changed_fields JSONB (diff)
+
+Provide:
+
+All migrations
+
+Seed users (Admin, Manager, Technician)
+
+Optional seed samples
+
+PROMPT 3 — Authentication, Sessions & Roles
+
+Implement:
+
+Login endpoint (email/password)
+
+Logout endpoint
+
+Password hashing (bcrypt)
+
+Session or JWT-based auth (choose one)
+
+Middleware:
+
+requireAuth
+
+requireRole(['Technician']), etc.
+
+Behavior:
+
+After login, redirect user based on role:
+
+Technician → /intake
+
+Manager → /dashboard
+
+Admin → /dashboard (plus user management later)
+
+Return role information to the frontend.
+
+Audit log:
+
+Log every login success/failure.
+
+PROMPT 4 — Sample Intake Screen Implementation
+
+Create the Sample Intake UI + backend:
+
+Frontend Form Fields:
+
+Sample ID
+
+Subject/Patient ID
+
+Assay Type
+
+Collection Date/Time
+
+Priority dropdown
+
+Initial Status = RECEIVED
+
+Notes (textarea)
+
+Submit button
+
+Backend:
+
+POST /api/samples
+
+Validate required fields
+
+Set timestamps
+
+Write:
+
+samples row
+
+initial entry in status_history
+
+audit event: CREATE_SAMPLE
+
+On success:
+
+Show confirmation and route to Worklist.
+
+PROMPT 5 — Sample Worklist & Status Update Workflow
+
+Build the central Worklist screen showing live samples.
+
+UI Requirements:
+
+Table columns:
+
+Sample ID
+
+Assay Type
+
+Current Status
+
+Received Date
+
+Last Updated
+
+Assigned To
+
+Filters:
+
+Status
+
+Date range (received_at)
+
+Assay Type
+
+Search box (Sample ID or Subject ID)
+
+Pagination (server-side)
+
+Inline or row-level Update Status control for Technicians:
+
+Modal to choose new status
+
+Add optional note
+
+Backend Requirements:
+
+GET /api/samples with filtering + pagination
+
+POST /api/samples/:id/status
+
+Validate allowed transitions
+
+Append status_history
+
+Append audit event: UPDATE_STATUS
+
+Managers:
+
+Read-only view except for opening Sample Detail.
+
+PROMPT 6 — Sample Detail Screen + Audit Trail
+
+Implement /samples/:id page.
+
+UI Sections:
+
+Header
+
+Sample ID
+
+Status badge
+
+Assay Type, Priority
+
+Collection & Received timestamps
+
+Intake Metadata (read-only)
+
+Patient/Subject ID
+
+Notes
+
+Collection Data
+
+Status Timeline / Audit Trail
+
+List events in chronological order
+
+Show: user, timestamp, from→to status, notes
+
+Include approval events
+
+Approve Result Button
+
+Visible only to Managers
+
+Allowed only if status = AWAITING_APPROVAL
+
+On click:
+
+Confirm dialog
+
+POST /api/samples/:id/approve
+
+Write audit + status history
+
+Backend must return combined view: sample + history + audit events.
+
+PROMPT 7 — Manager Dashboard (KPIs, Filters, At-Risk Table)
+
+Create /dashboard accessible only to Managers/Admin.
+
+Dashboard Components:
+
+KPI Tiles:
+
+Count of samples in:
+
+Received
+
+In Processing
+
+Awaiting Approval
+
+Approved
+
+Status Distribution Chart:
+
+Simple bar or donut chart
+
+Turnaround Metrics:
+
+Average turnaround = approved_at − received_at
+
+Computed server-side
+
+At-Risk Samples Table:
+
+Samples in processing longest
+
+Columns: Sample ID, Status, Received Date, Age (hours/days)
+
+Filters:
+
+Date range
+
+Assay Type
+
+Backend:
+
+GET /api/dashboard/summary
+
+GET /api/dashboard/at-risk
+
+GET /api/dashboard/turnaround
+
+PROMPT 8 — CSV Export
+
+Implement CSV export for both:
+
+Dashboard aggregate list
+
+Worklist filtered list
+
+Requirements:
+
+Endpoint: GET /api/export.csv
+
+Accept filters (status, dates, assay type)
+
+Generate CSV with headers
+
+Include turnaround time if available
+
+Log audit event: EXPORT_CSV
+
+Frontend:
+
+Add export button on Dashboard and Worklist.
+
+PROMPT 9 — Audit Logger Module
+
+Build a reusable audit logging service used across the backend:
+
+Function signature example:
+
+logAudit({
+  entityType,
+  entityId,
+  action,
+  userId,
+  changedFields,   // before/after diff
+  notes
+});
+
+
+Events to log:
+
+CREATE_SAMPLE
+
+UPDATE_STATUS
+
+APPROVE_RESULT
+
+UPDATE_SAMPLE_NOTES
+
+LOGIN_SUCCESS / LOGIN_FAILURE
+
+EXPORT_CSV
+
+Ensure:
+
+Append-only behavior
+
+Chronological timestamp ordering
+
+JSON diff formatting for changed_fields
+
+PROMPT 10 — Review, Hardening & Future Integrations Stub
+
+Add final enhancements:
+
+Add /integrations/lims_stub.json documenting where real LIMS connections will go.
+
+Add basic rate-limiting + input validation.
+
+Add environment config for dev/prod modes.
+
+Ensure all screens follow RBAC (Technician, Manager, Admin).
+
+Clean up UX for desktop-first performance.
+
+Add optional Admin-only user management screen placeholder (no need to fully build yet).
+
+Deliver final:
+
+Working full MVP
+
+Scripts for setup, migrations, running
+
+Production-ready file structure
+
+Code comments where future extensions plug in

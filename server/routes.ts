@@ -1096,6 +1096,13 @@ CRITICAL INSTRUCTIONS:
           }
           
           console.log("Parsed prompts count:", result.prompts?.length || 0);
+          
+          // Log first prompt title to confirm content is real
+          if (result.prompts && result.prompts.length > 0) {
+            console.log("First prompt title:", result.prompts[0].title);
+            console.log("Response size:", JSON.stringify(result).length, "bytes");
+          }
+          
           return res.json(result);
         } catch (aiError) {
           lastError = aiError instanceof Error ? aiError : new Error(String(aiError));

@@ -1,0 +1,142 @@
+# Legacy BIO App - MVP Build Specification
+
+## MVP Build Specification
+
+## Project Setup: Project Setup + Core UX Skeleton
+
+Build a browser-based MVP web app called "Legacy BIO App".
+
+**Core roles**
+* **User (authenticated)**: full access to core features
+
+**MVP screens (3-4)**
+1. **Landing / Login**
+2. **Main Dashboard**
+3. **Primary Feature Page**
+4. **Settings/Profile** (optional)
+
+**Global UI requirements**
+* Responsive, mobile-friendly layout
+* Clear navigation (sidebar or top nav)
+* Consistent components for tables, forms, status chips, and empty states
+* Top-right user menu with "Logout"
+
+**Auth**
+* Implement user login + session
+* Block all routes unless logged in
+
+---
+
+## Dashboard: Dashboard + Core Metrics
+
+Implement the **Main Dashboard** with:
+
+* Summary cards showing key metrics
+* Filter bar with relevant options
+* Recent activity or items table
+* Primary CTA button for main action
+
+**Deliverable**
+Filters work and update counts + table. Main action opens relevant workflow.
+
+---
+
+## Data Management: Foundational Data (CRUD)
+
+Create data management screens with tabs or sections for core entities.
+
+Each section:
+* Table with key fields + actions (View/Edit/Delete)
+* "New" button to add record
+* Simple validation and friendly errors
+
+**Deliverable**
+Full CRUD for each core entity type.
+
+---
+
+## Core Feature: Primary Feature Workflow
+
+Implement the primary feature workflow:
+
+* List view with search + filters
+* Create/edit form with required fields
+* Status flow and transitions
+* Activity timeline showing changes
+
+**Deliverable**
+End-to-end workflow works with full auditability.
+
+---
+
+## Integrations: External Integrations (if applicable)
+
+Add any required integrations:
+
+* Email notifications for key events
+* External API connections
+* File uploads/attachments
+
+**Deliverable**
+Integrations work in development environment.
+
+---
+
+## Reporting: Basic Reporting + Analytics
+
+Add basic reporting:
+
+* Key metrics by category/status
+* Date range filtering
+* Export capability (optional)
+
+**Deliverable**
+Reports update based on filters and remain fast.
+
+---
+
+## Security: Guardrails + Access Control
+
+Implement security guardrails:
+
+**Access control**
+* Users can only see their own data
+* Proper permission checks
+
+**Data protection**
+* Store only necessary info
+* Log key changes for auditability
+
+**Legal/disclaimer**
+* Add terms/disclaimer visible in app
+
+---
+
+## Polish: Polish + QA Checklist
+
+Finalize usability and ensure full flow works:
+
+**UX polish**
+* Confirm dialogs for delete
+* Clear empty states + "create first X" nudges
+* Inline validation messages
+* Consistent formatting for dates/currency
+* Status badges are visually distinct
+
+**Required end-to-end flow**
+1. User logs in
+2. User creates/manages data
+3. User completes primary workflow
+4. Dashboard shows updated metrics
+
+---
+
+## Master Prompt: Complete Build Prompt
+
+Build a web application called "Legacy BIO App" with:
+- User authentication (sign up/login)
+- Main dashboard showing key information
+- Primary workflow for the core feature
+- Clean, modern UI with responsive design
+
+This is a demo Build Pack. Connect to OpenAI to generate detailed prompts tailored to your specific requirements.

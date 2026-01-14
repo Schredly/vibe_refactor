@@ -1,0 +1,96 @@
+MVP Scope
+Include in MVP
+Sample lifecycle tracking across three core stages: intake, processing, and result approval
+Simple sample intake form to log new samples with key identifiers and assay information
+Status update workflow for technicians to move samples between defined states and record basic notes
+Manager dashboard with live, filterable view of sample counts, statuses, and basic turnaround-time metrics
+Role-based access control for at least two roles: Technician and Manager (plus Admin for user setup)
+Basic mutable audit trail per sample (who changed what status and when, including approvals)
+Performance-optimized list views with simple filters (status, date range) to reduce spreadsheet dependence
+Export of dashboard/sample list to CSV to support existing reporting needs during transition
+Defer to Later
+Full integration with existing LIMS or external analytics platforms (stubbed or manual import only in MVP)
+Complex regulatory validation workflows or electronic signatures beyond basic approvals and audit logs
+Advanced analytics (predictive turnaround time, bottleneck detection, trend dashboards over long periods)
+Mobile-native apps (iOS/Android); MVP will be desktop-first responsive web only
+Highly granular permissions beyond core roles (e.g., per-field or per-assay permission matrices)
+Configurable workflows for multiple assay types with custom states and branching logic
+Automated notifications and alerts (email/Slack) based on status changes or SLA breaches
+Scalable multi-tenant architecture or SSO/enterprise identity integration
+MVP Screens (5)
+Login & Role Selection Screen
+Authenticate users and route them into the app with the correct role-based access (Technician, Manager, Admin).
+
+UI Elements:
+
+Email/username input field
+Password input field
+Login button
+Error message area for invalid credentials
++1 more
+This keeps access simple while enforcing role-based behavior from the very first step, which is essential for auditability and basic compliance.
+
+Sample Intake Screen
+Allow technicians to log new biomarker assay samples into the system quickly and accurately.
+
+UI Elements:
+
+Form fields for Sample ID, Patient/Subject ID, Assay Type, Collection Date/Time, and Priority
+Dropdown for Initial Status (defaulted to 'Received')
+Free-text Notes field for special handling instructions
+Submit button to create the sample record
++1 more
+A focused form with only essential fields enables rapid intake and reduces the chance technicians revert to spreadsheets because the system feels slow or cumbersome.
+
+Sample Worklist & Status Screen
+Provide technicians and managers with a live, sortable list of all samples and their current status, enabling status updates instead of offline tracking.
+
+UI Elements:
+
+Table listing samples with columns for Sample ID, Assay Type, Current Status, Assigned To (optional), Received Date, and Last Updated
+Filter controls for Status, Date Range, and Assay Type
+Search box for Sample ID or Subject ID
+Inline or row-level 'Update Status' button that opens a small modal for changing status and adding a note
++1 more
+A central, real-time worklist removes the need for shadow spreadsheets by giving all teams a shared, up-to-date view of sample progress and easy status updates.
+
+Sample Detail & Audit Trail Screen
+Show all key information for a sample, its status history, and approvals for regulatory traceability.
+
+UI Elements:
+
+Header with Sample ID, current status badge, and basic metadata (Assay Type, Priority, dates)
+Read-only section for intake data (patient/subject ID, collection time, notes)
+Status timeline or vertical list of events (status changes, notes) with user, timestamp, and action
+Button for 'Approve Result' (visible to Managers only) with confirmation modal
++1 more
+Consolidating sample data and its change history in one place satisfies audit and quality needs while allowing managers to confidently approve results within the same UI.
+
+Manager Dashboard Screen
+Give managers a live overview of sample volumes, statuses, and basic turnaround-time metrics without waiting for weekly reports.
+
+UI Elements:
+
+KPI tiles showing counts of samples by key statuses (Received, In Processing, Awaiting Approval, Approved)
+Simple bar or donut chart visualizing current status distribution
+Table of 'At-Risk' samples (e.g., oldest in processing) with received date and age in days/hours
+Filters for date range and assay type to narrow the dashboard scope
++1 more
+A concise, live dashboard addresses the explicit need to replace weekly reports and provides managers with actionable visibility to reduce turnaround time.
+
+User Flow
+Step 1: User navigates to the web app and logs in with their credentials.
+Step 2: Technicians go to the Sample Intake screen and create new sample records as specimens arrive.
+Step 3: All users view the Sample Worklist to see live status and filter/search for specific samples.
+Step 4: Technicians open samples from the Worklist to update status and add processing notes as work progresses.
+Step 5: When assay results are ready, Managers open the Sample Detail screen to review metadata, notes, and audit trail.
+Step 6: Managers approve results using the 'Approve Result' action, which writes to the audit trail.
+Step 7: Managers monitor throughput and bottlenecks using the Manager Dashboard with filters and KPIs.
+Step 8: Managers export dashboard or worklist data to CSV for any additional analysis or reporting.
+AI / Agent Architecture
+Data Sources
+Legal & Safety Guardrails
+Replit-Ready Build Prompt
+Build a small, production-ready MVP web application called 'Legacy BIO App' to track biomarker sample intake, processing, and result approvals. Use a standard web stack: backend in Node.js/Express or Python/FastAPI, frontend in React, and a relational database (PostgreSQL or MySQL). Implement user authentication with at least three roles: Technician, Manager, and Admin. Core features: (1) Login screen with secure auth; (2) Sample Intake screen with a form for Sample ID, Subject ID, Assay Type, Collection Date/Time, Priority, Notes, and default Status='Received'; (3) Sample Worklist showing a sortable, filterable table of samples (status, dates, assay type) with a control to update status and add notes; (4) Sample Detail screen displaying all sample data plus an audit trail (status changes, notes, approvals with user and timestamp), and an 'Approve Result' action for Managers; (5) Manager Dashboard with KPI tiles (counts by status), a simple chart of status distribution, a table of oldest in-progress samples, filters (date range, assay type), and CSV export. Include a basic audit_events table that appends on every create/update/approval. Use HTTPS-ready configuration, environment-based config, and keep the UI clean, desktop-first, and fast enough for high-volume lists using pagination.
+Review Your Plan
+Click on any section to edit it. When you're satisfied, mark as "Agreed" to continue.
