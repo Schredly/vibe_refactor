@@ -957,14 +957,68 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
             return res.status(500).json({ error: "LLM returned empty response after multiple retries. Please try again." });
           }
 
-          // Parse JSON, handling possible markdown code blocks from Anthropic
-          let jsonContent = content;
-          const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          // Parse JSON with robust handling for various LLM output formats
+          let jsonContent = content.trim();
+          
+          // Remove markdown code blocks if present
+          const jsonMatch = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/);
           if (jsonMatch) {
             jsonContent = jsonMatch[1].trim();
           }
+          
+          // Remove any leading text before the JSON object
+          const jsonStartIndex = jsonContent.indexOf('{');
+          if (jsonStartIndex > 0) {
+            console.log(`Stripping ${jsonStartIndex} characters before JSON object`);
+            jsonContent = jsonContent.substring(jsonStartIndex);
+          }
+          
+          // Find the matching closing brace
+          let braceCount = 0;
+          let jsonEndIndex = -1;
+          for (let i = 0; i < jsonContent.length; i++) {
+            if (jsonContent[i] === '{') braceCount++;
+            if (jsonContent[i] === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                jsonEndIndex = i + 1;
+                break;
+              }
+            }
+          }
+          
+          if (jsonEndIndex > 0 && jsonEndIndex < jsonContent.length) {
+            console.log(`Truncating ${jsonContent.length - jsonEndIndex} trailing characters after JSON`);
+            jsonContent = jsonContent.substring(0, jsonEndIndex);
+          }
 
-          const result = JSON.parse(jsonContent);
+          let result;
+          try {
+            result = JSON.parse(jsonContent);
+          } catch (parseError) {
+            console.error("Initial JSON parse failed, trying to fix common issues...");
+            console.error("Parse error:", parseError);
+            console.log("First 500 chars:", jsonContent.substring(0, 500));
+            console.log("Last 500 chars:", jsonContent.substring(jsonContent.length - 500));
+            
+            // Try fixing common JSON issues
+            let fixedContent = jsonContent
+              // Fix unescaped newlines in strings (common LLM issue)
+              .replace(/(?<!\\)\\n/g, '\\n')
+              // Fix unescaped tabs
+              .replace(/(?<!\\)\\t/g, '\\t')
+              // Remove control characters except valid JSON whitespace
+              .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+            
+            try {
+              result = JSON.parse(fixedContent);
+              console.log("JSON parsed successfully after fixes");
+            } catch (secondError) {
+              console.error("JSON still invalid after fixes:", secondError);
+              throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. The AI returned content but it wasn't valid JSON.`);
+            }
+          }
+          
           console.log("Parsed prompts count:", result.prompts?.length || 0);
           return res.json(result);
         } catch (aiError) {
