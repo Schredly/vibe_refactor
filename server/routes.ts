@@ -627,8 +627,8 @@ export async function registerRoutes(
       const llmClient = getLLMClient(llmSettings);
       
       if (!llmClient) {
-        console.log("LLM not configured, returning mock detailed summary");
-        return res.json(generateMockDetailedSummary(projectName, questions));
+        console.log("LLM not configured - API key required");
+        return res.status(400).json({ error: "Please configure an AI provider with a valid API key in Settings." });
       }
 
       const qaText = answeredQuestions
@@ -723,8 +723,8 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         });
         
         if (!content) {
-          console.log("Empty LLM response, using fallback");
-          return res.json(generateMockDetailedSummary(projectName, questions));
+          console.log("Empty LLM response, returning error");
+          return res.status(500).json({ error: "AI returned an empty response. Please try again." });
         }
 
         // Parse JSON, handling possible markdown code blocks from Anthropic
@@ -753,8 +753,11 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
           errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
         });
         
-        console.log("Falling back to mock detailed summary");
-        return res.json(generateMockDetailedSummary(projectName, questions));
+        const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+        if (errorMessage === "LLM timeout") {
+          return res.status(504).json({ error: "The AI request timed out. Please try again.", timeout: true });
+        }
+        return res.status(500).json({ error: `AI request failed: ${errorMessage}. Please try again.` });
       }
     } catch (error) {
       console.error("Error generating summary:", error);
@@ -773,8 +776,8 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
       const llmClient = getLLMClient(llmSettings);
       
       if (!llmClient) {
-        console.log("LLM not configured, returning mock prompts");
-        return res.json(generateMockPrompts(projectName));
+        console.log("LLM not configured - API key required");
+        return res.status(400).json({ error: "Please configure an AI provider with a valid API key in Settings." });
       }
 
       const answeredQuestions = questions.filter((q) => q.answerText);
@@ -945,13 +948,13 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
           });
           
           if (!content) {
-            console.log(`Empty LLM response on attempt ${attempt}, ${attempt < MAX_RETRIES ? 'retrying...' : 'using fallback'}`);
+            console.log(`Empty LLM response on attempt ${attempt}, ${attempt < MAX_RETRIES ? 'retrying...' : 'failing'}`);
             if (attempt < MAX_RETRIES) {
               // Wait before retrying (exponential backoff: 2s, 4s)
               await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
               continue;
             }
-            return res.json(generateMockPrompts(projectName));
+            return res.status(500).json({ error: "LLM returned empty response after multiple retries. Please try again." });
           }
 
           // Parse JSON, handling possible markdown code blocks from Anthropic
@@ -981,10 +984,13 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
             errorMessage: `${lastError.message} (attempt ${attempt})`,
           });
           
-          // Don't retry on timeout - it's too slow
+          // Don't retry on timeout - it's too slow, return error to user
           if (lastError.message === "LLM timeout") {
-            console.log("Timeout occurred, falling back to mock prompts");
-            return res.json(generateMockPrompts(projectName));
+            console.log("Timeout occurred, returning error to user");
+            return res.status(504).json({ 
+              error: "The AI request timed out. This can happen with complex projects. Please try again - the model may be temporarily slow.",
+              timeout: true 
+            });
           }
           
           if (attempt < MAX_RETRIES) {
@@ -994,9 +1000,11 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
         }
       }
       
-      // All retries exhausted
-      console.log("All retries exhausted, falling back to mock prompts");
-      return res.json(generateMockPrompts(projectName));
+      // All retries exhausted - return error to user
+      console.log("All retries exhausted, returning error to user");
+      return res.status(500).json({ 
+        error: `Failed to generate prompts after ${MAX_RETRIES} attempts. Error: ${lastError?.message || 'Unknown error'}. Please try again.` 
+      });
     } catch (error) {
       console.error("Error generating prompts:", error);
       if (error instanceof z.ZodError) {
