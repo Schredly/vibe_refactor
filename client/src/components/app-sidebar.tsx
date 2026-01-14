@@ -60,8 +60,8 @@ export function AppSidebar({
   const handleLoadDemo = (demoKey: string) => {
     const demo = allDemoProjects.find((d) => d.key === demoKey);
     if (demo) {
-      const project = createDemoProject(demo.data);
-      onCreateProject(project);
+      const demoData = createDemoProject(demo.data);
+      onCreateProject(demoData);
     }
   };
 

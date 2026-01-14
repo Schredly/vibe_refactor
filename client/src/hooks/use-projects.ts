@@ -47,6 +47,7 @@ export function useProjects() {
       summary: data.summary,
       detailedSummary: data.detailedSummary,
       generatedPrompts: data.generatedPrompts,
+      agentContext: data.agentContext,
       currentStep: data.currentStep || 1,
       createdAt: now,
       updatedAt: now,

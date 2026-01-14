@@ -164,7 +164,7 @@ export default function Home() {
           projects={projects}
           activeProjectId={activeProjectId}
           onSelectProject={setActiveProjectId}
-          onCreateProject={() => createProject()}
+          onCreateProject={createProject}
           onDeleteProject={deleteProject}
           onRenameProject={renameProject}
         />
