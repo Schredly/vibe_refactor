@@ -105,15 +105,21 @@ ${p.content}`).join("\n\n---\n\n")}`;
     setShowModal(true);
   };
 
-  const handleDoIt = () => {
+  const handleDoIt = async () => {
     const masterPrompt = getMasterPrompt(appName.trim(), appDescription.trim());
-    const encodedPrompt = encodeURIComponent(masterPrompt);
-    const replitUrl = `https://replit.com/create?prompt=${encodedPrompt}&title=${encodeURIComponent(appName.trim())}`;
+    
+    // Copy full prompt to clipboard
+    await navigator.clipboard.writeText(masterPrompt);
+    
+    // Create a short initial prompt for Replit (to avoid URL length limits)
+    const shortPrompt = `Build an application called "${appName.trim()}": ${appDescription.trim()}. I will paste detailed specifications in the next message.`;
+    const replitUrl = `https://replit.com/create?prompt=${encodeURIComponent(shortPrompt)}&title=${encodeURIComponent(appName.trim())}`;
+    
     window.open(replitUrl, "_blank", "noopener,noreferrer");
     setShowModal(false);
     toast({
-      title: "Building Started",
-      description: `Opening Replit to create "${appName.trim()}"...`,
+      title: "Build Pack Copied!",
+      description: "Replit is opening. Paste (Ctrl/Cmd+V) your full Build Pack into the Agent chat.",
     });
   };
 
@@ -243,6 +249,9 @@ ${p.content}`).join("\n\n---\n\n")}`;
                 data-testid="input-app-description"
               />
             </div>
+            <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+              When you click "Do It!", your full Build Pack will be copied to your clipboard and Replit will open. Simply paste (Ctrl/Cmd+V) the Build Pack into the Agent chat to start building.
+            </p>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowModal(false)} data-testid="button-cancel">
