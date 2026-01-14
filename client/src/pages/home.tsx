@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { WizardProgress } from "@/components/wizard-progress";
@@ -16,6 +16,8 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Question, AgentContext, DetailedSummary } from "@shared/schema";
 
 export default function Home() {
+  const mainRef = useRef<HTMLElement>(null);
+  
   const {
     projects,
     activeProject,
@@ -60,21 +62,27 @@ export default function Home() {
     }
   }, [setAgentContext]);
 
+  const scrollToTop = useCallback(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
   const handleQuestionsExtracted = useCallback(async (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive") => {
     setQuestions(questions);
     setScriptContent(content, source);
     setCurrentStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
     
     if (activeProject) {
       generateContext(activeProject.name, questions);
     }
-  }, [setQuestions, setScriptContent, setCurrentStep, activeProject, generateContext]);
+  }, [setQuestions, setScriptContent, setCurrentStep, activeProject, generateContext, scrollToTop]);
 
   const goToStep = useCallback((step: number) => {
     setCurrentStep(step);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [setCurrentStep]);
+    scrollToTop();
+  }, [setCurrentStep, scrollToTop]);
 
   const handleStepClick = (step: number) => {
     if (step <= currentStep) {
@@ -203,7 +211,7 @@ export default function Home() {
             />
           )}
           
-          <main className="flex-1 overflow-auto px-8 py-6">
+          <main ref={mainRef} className="flex-1 overflow-auto px-8 py-6">
             {renderStep()}
           </main>
         </SidebarInset>
