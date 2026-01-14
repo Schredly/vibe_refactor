@@ -173,27 +173,6 @@ export const defaultVibeCodingPlatforms: VibeCodingPlatform[] = [
     isDefault: true,
     isBuiltIn: true,
   },
-  {
-    id: "cursor",
-    name: "Cursor",
-    description: "AI-first code editor",
-    isDefault: false,
-    isBuiltIn: true,
-  },
-  {
-    id: "bolt",
-    name: "Bolt.new",
-    description: "StackBlitz AI coding assistant",
-    isDefault: false,
-    isBuiltIn: true,
-  },
-  {
-    id: "lovable",
-    name: "Lovable",
-    description: "AI app builder",
-    isDefault: false,
-    isBuiltIn: true,
-  },
 ];
 
 export const defaultVibeCodingSettings: VibeCodingSettings = {
