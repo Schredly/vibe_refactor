@@ -796,137 +796,31 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         ? `\nAI/Agent Architecture:\n${detailedSummary.aiArchitecture.roles.map((r: { name: string; responsibilities: string[] }) => `- ${r.name}: ${r.responsibilities.join(", ")}`).join("\n")}`
         : "";
 
-      const systemPrompt = `You are an expert software architect generating a "Build Pack" for Replit Agent and similar vibe coding AI tools.
+      const systemPrompt = `You are generating implementation-ready prompts for an AI coding agent to build an MVP.
 
-Your task is to transform the user's MVP summary into 8-12 EXHAUSTIVELY DETAILED, IMPLEMENTATION-READY prompts organized by TECHNICAL LAYERS.
+CRITICAL OUTPUT FORMAT - You MUST output ONLY this exact JSON structure:
+{"prompts": [{"id": "1", "sequence": 1, "category": "...", "title": "...", "roles": [], "content": "...", "deliverable": "...", "collapsedByDefault": false}, ...]}
 
-CRITICAL RULES - THE AI CODING AGENT NEEDS:
-1. EXACT database schemas with field names, data types (uuid, varchar, text, jsonb, timestamp), foreign keys, and constraints
-2. SPECIFIC API endpoints with HTTP methods, request/response bodies, and validation rules
-3. COMPLETE React component structures with every button, input, dropdown, table column named
-4. PRECISE routing paths (e.g., /api/samples/:id/approve, /dashboard)
-5. DETAILED middleware requirements (auth guards, role checks, validation)
-6. CONCRETE seed data examples (5+ realistic rows per table)
+Do NOT output anything except this JSON object. No markdown, no explanations, no extra text.
 
-ORGANIZE PROMPTS BY TECHNICAL LAYER (adapt based on the actual MVP):
+PROMPT REQUIREMENTS (8-10 prompts organized by technical layer):
 
-**Prompt 1 — Project Setup & Tech Stack**
-- Exact tech stack (Node.js/Express, PostgreSQL, React, UI library)
-- Folder structure (/server, /client, etc.)
-- .env configuration
-- Route placeholders
-- Design philosophy (e.g., "prioritize auditability over UI flash")
+1. Setup: Tech stack, folder structure, env config
+2. Schema: Database tables with exact field names and types (uuid, varchar, text, timestamp, etc.), foreign keys, seed data
+3. Auth: Login flow, roles, permissions, middleware
+4. API: All endpoints with HTTP methods, paths, request/response schemas
+5. Services: Reusable backend modules and utilities
+6. Frontend Layout: Routes, auth context, navigation, layout structure
+7-9. Feature Screens: One prompt per major screen with all UI elements, form fields, buttons, table columns, actions
+10. Dashboard: KPIs, charts, filters, export
 
-**Prompt 2 — Data Model & Migrations**
-- Complete PostgreSQL schema for EVERY table
-- ALL fields with exact types: id (uuid), created_at (timestamp), status (varchar/enum), etc.
-- Foreign key relationships
-- JSONB fields for flexible data
-- Migration files
-- 5+ seed data rows per table in various states
+DETAIL LEVEL - Each prompt content must include:
+- Exact database field names and types (e.g., "id uuid primary key, status varchar, created_at timestamp")
+- Exact API endpoints (e.g., "POST /api/samples/:id/approve")
+- Exact UI element labels and actions
+- Seed data examples (5+ rows per table)
 
-**Prompt 3 — Authentication & Authorization**
-- Login flow (username/password, bcrypt, JWT or session)
-- Role definitions and their permissions
-- Middleware: requireAuth, requireRole(["admin", "manager"])
-- Post-login routing based on role
-- Audit logging for auth events
-
-**Prompt 4 — REST API Endpoints**
-- EVERY endpoint with HTTP method and path
-- Request body schemas with validation rules
-- Response formats
-- Error codes and messages
-- Group by resource (Auth, Users, [Main Entity], Dashboard, etc.)
-
-**Prompt 5 — Backend Modules & Services**
-- Reusable service modules (audit logger, notification service, etc.)
-- Business logic that's shared across endpoints
-- Helper utilities (date formatting, validation, diff calculation)
-- Where each module hooks into the API
-
-**Prompt 6 — Frontend Routing & Layout**
-- All routes (/login, /dashboard, /[entity]/:id, etc.)
-- Auth context and protected routes
-- Role-based navigation (show/hide menu items)
-- Global layout structure (header, sidebar, main content)
-- Responsive considerations
-
-**Prompt 7-9 — Feature-Specific Screens** (one prompt per major screen/feature)
-- Screen name and route
-- ALL UI components with exact element types
-- Form fields with labels, placeholders, validation, required/optional
-- Table columns with sorting/filtering
-- Button labels and their exact actions
-- State changes and API calls triggered
-- Loading, empty, and error states
-
-**Prompt 10 — Dashboard & Analytics**
-- Summary metrics/tiles
-- Charts with data sources
-- Tables with filtering
-- Export functionality (CSV, PDF)
-- Role restrictions
-
-**Prompt 11+ — Additional Features**
-- Notifications, file uploads, integrations
-- Settings pages
-- Admin-only features
-
-EXAMPLE OF REQUIRED DETAIL LEVEL:
-
-Instead of: "Create a samples table"
-Write:
-"Create the PostgreSQL schema for samples:
-- id (uuid, primary key)
-- sample_id (varchar, human-readable, unique)
-- patient_id (varchar, optional)
-- assay_type (varchar, required)
-- current_status (varchar: 'RECEIVED', 'IN_PROCESSING', 'AWAITING_APPROVAL', 'COMPLETED')
-- result_summary (text, optional)
-- processing_notes (text, optional)
-- assigned_technician (uuid, FK to users.id)
-- approved_by_user_id (uuid, FK to users.id, nullable)
-- approved_at (timestamp, nullable)
-- received_at (timestamp, required)
-- created_at (timestamp, default now())
-- updated_at (timestamp, auto-update)
-
-Include migration files and 5 seeded sample rows in various statuses."
-
-Instead of: "Add API endpoints for samples"
-Write:
-"Create REST endpoints with validation:
-
-Samples:
-- POST /api/samples - Create new sample (body: sample_id, assay_type, patient_id, received_at)
-- GET /api/samples - List with filters (query: status, date_from, date_to, technician_id, page, limit)
-- GET /api/samples/:id - Get single sample with full details
-- PATCH /api/samples/:id - Update notes, result_summary (body: processing_notes?, result_summary?)
-- POST /api/samples/:id/status - Change status (body: new_status, notes?)
-- POST /api/samples/:id/approve - Approve sample (sets status=COMPLETED, approved_by, approved_at)
-
-Status + Audit:
-- GET /api/samples/:id/status-history
-- GET /api/samples/:id/audit-log
-
-Focus on correct HTTP codes (200, 201, 400, 401, 403, 404, 500), validation errors, and edge case protection."
-
-Output as JSON:
-{
-  "prompts": [
-    {
-      "id": "1",
-      "sequence": 1,
-      "category": "Setup",
-      "title": "Project Setup & Tech Stack",
-      "roles": [],
-      "content": "The FULL, DETAILED prompt text with exact specifications...",
-      "deliverable": "Working project structure with placeholder routes",
-      "collapsedByDefault": false
-    }
-  ]
-}`;
+The "content" field should be long and detailed - 500-2000 words per prompt.`;
 
       const userPrompt = `# PROJECT: ${projectName}
 
@@ -1077,21 +971,54 @@ CRITICAL INSTRUCTIONS:
             console.log("First 500 chars:", jsonContent.substring(0, 500));
             console.log("Last 500 chars:", jsonContent.substring(jsonContent.length - 500));
             
-            // Try fixing common JSON issues
-            let fixedContent = jsonContent
-              // Fix unescaped newlines in strings (common LLM issue)
-              .replace(/(?<!\\)\\n/g, '\\n')
-              // Fix unescaped tabs
-              .replace(/(?<!\\)\\t/g, '\\t')
-              // Remove control characters except valid JSON whitespace
-              .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+            // Try to find and extract the prompts array directly
+            const promptsArrayMatch = jsonContent.match(/"prompts"\s*:\s*\[/);
+            if (promptsArrayMatch) {
+              console.log("Found prompts array, attempting extraction...");
+              const startIndex = promptsArrayMatch.index! + promptsArrayMatch[0].length - 1;
+              let bracketCount = 0;
+              let endIndex = -1;
+              
+              for (let i = startIndex; i < jsonContent.length; i++) {
+                if (jsonContent[i] === '[') bracketCount++;
+                if (jsonContent[i] === ']') {
+                  bracketCount--;
+                  if (bracketCount === 0) {
+                    endIndex = i + 1;
+                    break;
+                  }
+                }
+              }
+              
+              if (endIndex > startIndex) {
+                const promptsArrayStr = jsonContent.substring(startIndex, endIndex);
+                try {
+                  const prompts = JSON.parse(promptsArrayStr);
+                  console.log(`Extracted ${prompts.length} prompts from malformed JSON`);
+                  result = { prompts };
+                } catch (extractError) {
+                  console.error("Failed to extract prompts array:", extractError);
+                }
+              }
+            }
             
-            try {
-              result = JSON.parse(fixedContent);
-              console.log("JSON parsed successfully after fixes");
-            } catch (secondError) {
-              console.error("JSON still invalid after fixes:", secondError);
-              throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. The AI returned content but it wasn't valid JSON.`);
+            if (!result) {
+              // Try fixing common JSON issues
+              let fixedContent = jsonContent
+                // Fix unescaped newlines in strings (common LLM issue)
+                .replace(/(?<!\\)\\n/g, '\\n')
+                // Fix unescaped tabs
+                .replace(/(?<!\\)\\t/g, '\\t')
+                // Remove control characters except valid JSON whitespace
+                .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+              
+              try {
+                result = JSON.parse(fixedContent);
+                console.log("JSON parsed successfully after fixes");
+              } catch (secondError) {
+                console.error("JSON still invalid after fixes:", secondError);
+                throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. The AI returned content but it wasn't valid JSON.`);
+              }
             }
           }
           
