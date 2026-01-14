@@ -156,7 +156,7 @@ ${p.content}`).join("\n\n---\n\n")}`;
           </div>
           <h3 className="text-xl font-semibold mb-2">Ready to Build</h3>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-            Your Build Pack is complete and available for download at the bottom of this screen. If you want to go build at this point click the Vibe Code It! button to start building.
+            Your Build Pack is ready and available for download at the bottom of this page. When you're ready to start building, click Vibe Code It!
           </p>
           <Button
             size="lg"
