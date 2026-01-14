@@ -50,7 +50,7 @@ interface ChatCompletionOptions {
 }
 
 interface LLMClient {
-  provider: "openai" | "anthropic";
+  provider: "openai" | "anthropic" | "gemini" | "groq";
   model: string;
   chat: (options: ChatCompletionOptions) => Promise<string | null>;
 }
@@ -75,16 +75,16 @@ if (hasOpenAIConfig) {
 
 // Create unified LLM client based on settings
 function getLLMClient(settings?: LLMSettings): LLMClient | null {
-  // If no settings or using Replit integration with OpenAI
-  if (!settings || (settings.provider === "openai" && settings.useReplitIntegration)) {
+  // If no settings provided, use Replit's default OpenAI if available
+  if (!settings) {
     if (!defaultOpenai) return null;
     
     return {
       provider: "openai",
-      model: "gpt-5.1",
+      model: "gpt-4.1",
       chat: async (options: ChatCompletionOptions) => {
         const response = await defaultOpenai!.chat.completions.create({
-          model: "gpt-5.1",
+          model: "gpt-4.1",
           messages: options.messages,
           max_completion_tokens: options.maxTokens,
           ...(options.jsonMode && { response_format: { type: "json_object" } }),
@@ -101,7 +101,7 @@ function getLLMClient(settings?: LLMSettings): LLMClient | null {
       const model = settings.model || "claude-sonnet-4-20250514";
       
       // Anthropic has lower max token limits than OpenAI
-      const ANTHROPIC_MAX_TOKENS = 8192;
+      const ANTHROPIC_MAX_TOKENS = 16384;
       
       return {
         provider: "anthropic",
@@ -134,18 +134,102 @@ function getLLMClient(settings?: LLMSettings): LLMClient | null {
     }
   }
 
-  // OpenAI or Custom (OpenAI-compatible) provider
-  if (settings.apiKey) {
+  // Gemini provider (uses OpenAI-compatible API)
+  if (settings.provider === "gemini" && settings.apiKey) {
     try {
-      const baseUrl = settings.provider === "custom" && settings.baseUrl 
-        ? settings.baseUrl 
-        : settings.provider === "openai"
-          ? "https://api.openai.com/v1"
-          : undefined;
-
       const client = new OpenAI({
         apiKey: settings.apiKey,
-        baseURL: baseUrl,
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      });
+      
+      const model = settings.model || "gemini-2.5-pro";
+      
+      return {
+        provider: "gemini",
+        model,
+        chat: async (options: ChatCompletionOptions) => {
+          const response = await client.chat.completions.create({
+            model,
+            messages: options.messages,
+            max_completion_tokens: options.maxTokens,
+            ...(options.jsonMode && { response_format: { type: "json_object" } }),
+          });
+          return response.choices[0]?.message?.content ?? null;
+        }
+      };
+    } catch (error) {
+      console.warn("Failed to create Gemini client:", error);
+      return null;
+    }
+  }
+
+  // Groq provider (uses OpenAI-compatible API)
+  if (settings.provider === "groq" && settings.apiKey) {
+    try {
+      const client = new OpenAI({
+        apiKey: settings.apiKey,
+        baseURL: "https://api.groq.com/openai/v1",
+      });
+      
+      const model = settings.model || "llama-3.3-70b-versatile";
+      
+      return {
+        provider: "groq",
+        model,
+        chat: async (options: ChatCompletionOptions) => {
+          // Groq has a max context of 32K for most models, so we limit tokens
+          const maxTokens = Math.min(options.maxTokens, 8192);
+          
+          const response = await client.chat.completions.create({
+            model,
+            messages: options.messages,
+            max_tokens: maxTokens,
+            ...(options.jsonMode && { response_format: { type: "json_object" } }),
+          });
+          return response.choices[0]?.message?.content ?? null;
+        }
+      };
+    } catch (error) {
+      console.warn("Failed to create Groq client:", error);
+      return null;
+    }
+  }
+
+  // OpenAI provider with user's own API key
+  if (settings.provider === "openai" && settings.apiKey) {
+    try {
+      const client = new OpenAI({
+        apiKey: settings.apiKey,
+        baseURL: "https://api.openai.com/v1",
+      });
+      
+      const model = settings.model || "gpt-4o";
+      
+      return {
+        provider: "openai",
+        model,
+        chat: async (options: ChatCompletionOptions) => {
+          const response = await client.chat.completions.create({
+            model,
+            messages: options.messages,
+            max_completion_tokens: options.maxTokens,
+            ...(options.jsonMode && { response_format: { type: "json_object" } }),
+          });
+          return response.choices[0]?.message?.content ?? null;
+        }
+      };
+    } catch (error) {
+      console.warn("Failed to create OpenAI client:", error);
+      return null;
+    }
+  }
+
+  // Custom (OpenAI-compatible) provider
+  if (settings.provider === "custom" && settings.apiKey && settings.baseUrl) {
+    try {
+      const client = new OpenAI({
+        apiKey: settings.apiKey,
+        baseURL: settings.baseUrl,
       });
       
       const model = settings.model || "gpt-4o";
@@ -169,14 +253,14 @@ function getLLMClient(settings?: LLMSettings): LLMClient | null {
     }
   }
 
-  // Fallback to default Replit integration
+  // Fallback to default Replit integration if no API key provided
   if (defaultOpenai) {
     return {
       provider: "openai",
-      model: "gpt-5.1",
+      model: "gpt-4.1",
       chat: async (options: ChatCompletionOptions) => {
         const response = await defaultOpenai!.chat.completions.create({
-          model: "gpt-5.1",
+          model: "gpt-4.1",
           messages: options.messages,
           max_completion_tokens: options.maxTokens,
           ...(options.jsonMode && { response_format: { type: "json_object" } }),
@@ -191,24 +275,35 @@ function getLLMClient(settings?: LLMSettings): LLMClient | null {
 
 // Legacy function for backward compatibility - kept for routes that haven't been migrated yet
 function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model: string } {
-  // If no settings or using Replit integration with OpenAI
-  if (!settings || (settings.provider === "openai" && settings.useReplitIntegration)) {
+  // If no settings provided, use default
+  if (!settings) {
     return { 
       client: defaultOpenai, 
-      model: "gpt-5.1"
+      model: "gpt-4.1"
     };
   }
 
-  // For non-Anthropic providers with custom API key
-  if (settings.apiKey && settings.provider !== "anthropic") {
+  // For OpenAI provider with custom API key
+  if (settings.provider === "openai" && settings.apiKey) {
     try {
-      const baseUrl = settings.provider === "custom" && settings.baseUrl 
-        ? settings.baseUrl 
-        : "https://api.openai.com/v1";
-
       const client = new OpenAI({
         apiKey: settings.apiKey,
-        baseURL: baseUrl,
+        baseURL: "https://api.openai.com/v1",
+      });
+      
+      return { client, model: settings.model || "gpt-4o" };
+    } catch (error) {
+      console.warn("Failed to create OpenAI client:", error);
+      return { client: null, model: settings.model || "gpt-4o" };
+    }
+  }
+
+  // For custom providers with API key
+  if (settings.provider === "custom" && settings.apiKey && settings.baseUrl) {
+    try {
+      const client = new OpenAI({
+        apiKey: settings.apiKey,
+        baseURL: settings.baseUrl,
       });
       
       return { client, model: settings.model || "gpt-4o" };
@@ -219,7 +314,7 @@ function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model
   }
 
   // Fallback to default
-  return { client: defaultOpenai, model: "gpt-5.1" };
+  return { client: defaultOpenai, model: "gpt-4.1" };
 }
 
 function generateMockDetailedSummary(projectName: string, questions: { text: string; answerText?: string }[]) {
