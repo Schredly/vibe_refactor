@@ -856,14 +856,14 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
         try {
           console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed prompt generation (attempt ${attempt}/${MAX_RETRIES})...`);
           
-          // 4 minute timeout for detailed prompt generation (complex task)
+          // 6 minute timeout for detailed prompt generation (complex task requiring extensive output)
           const timeoutPromise = new Promise<string | null>((_, reject) => 
-            setTimeout(() => reject(new Error("LLM timeout")), 240000)
+            setTimeout(() => reject(new Error("LLM timeout")), 360000)
           );
           
           const llmPromise = llmClient.chat({
             messages: promptMessages,
-            maxTokens: 16384,
+            maxTokens: 32000,
             jsonMode: llmClient.provider === "openai",
           });
 
