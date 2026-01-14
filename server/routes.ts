@@ -75,23 +75,9 @@ if (hasOpenAIConfig) {
 
 // Create unified LLM client based on settings
 function getLLMClient(settings?: LLMSettings): LLMClient | null {
-  // If no settings provided, use Replit's default OpenAI if available
-  if (!settings) {
-    if (!defaultOpenai) return null;
-    
-    return {
-      provider: "openai",
-      model: "gpt-4.1",
-      chat: async (options: ChatCompletionOptions) => {
-        const response = await defaultOpenai!.chat.completions.create({
-          model: "gpt-4.1",
-          messages: options.messages,
-          max_completion_tokens: options.maxTokens,
-          ...(options.jsonMode && { response_format: { type: "json_object" } }),
-        });
-        return response.choices[0]?.message?.content ?? null;
-      }
-    };
+  // If no settings provided, return null - users must provide their own API key
+  if (!settings || !settings.apiKey) {
+    return null;
   }
 
   // Anthropic provider
@@ -253,38 +239,18 @@ function getLLMClient(settings?: LLMSettings): LLMClient | null {
     }
   }
 
-  // Fallback to default Replit integration if no API key provided
-  if (defaultOpenai) {
-    return {
-      provider: "openai",
-      model: "gpt-4.1",
-      chat: async (options: ChatCompletionOptions) => {
-        const response = await defaultOpenai!.chat.completions.create({
-          model: "gpt-4.1",
-          messages: options.messages,
-          max_completion_tokens: options.maxTokens,
-          ...(options.jsonMode && { response_format: { type: "json_object" } }),
-        });
-        return response.choices[0]?.message?.content ?? null;
-      }
-    };
-  }
-
   return null;
 }
 
 // Legacy function for backward compatibility - kept for routes that haven't been migrated yet
 function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model: string } {
-  // If no settings provided, use default
-  if (!settings) {
-    return { 
-      client: defaultOpenai, 
-      model: "gpt-4.1"
-    };
+  // If no settings or API key provided, return null - users must provide their own API key
+  if (!settings || !settings.apiKey) {
+    return { client: null, model: "gpt-4o" };
   }
 
   // For OpenAI provider with custom API key
-  if (settings.provider === "openai" && settings.apiKey) {
+  if (settings.provider === "openai") {
     try {
       const client = new OpenAI({
         apiKey: settings.apiKey,
@@ -299,7 +265,7 @@ function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model
   }
 
   // For custom providers with API key
-  if (settings.provider === "custom" && settings.apiKey && settings.baseUrl) {
+  if (settings.provider === "custom" && settings.baseUrl) {
     try {
       const client = new OpenAI({
         apiKey: settings.apiKey,
@@ -313,8 +279,8 @@ function getOpenAIClient(settings?: LLMSettings): { client: OpenAI | null; model
     }
   }
 
-  // Fallback to default
-  return { client: defaultOpenai, model: "gpt-4.1" };
+  // No valid configuration
+  return { client: null, model: settings.model || "gpt-4o" };
 }
 
 function generateMockDetailedSummary(projectName: string, questions: { text: string; answerText?: string }[]) {
