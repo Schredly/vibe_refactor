@@ -302,8 +302,12 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     setCleanLoading(question.id);
 
     try {
+      const { loadLLMSettings } = await import("@/components/settings-dialog");
+      const llmSettings = loadLLMSettings();
+      
       const response = await apiRequest("POST", "/api/cleanText", {
         text: question.answerText,
+        llmSettings,
       });
       
       const result = await response.json();

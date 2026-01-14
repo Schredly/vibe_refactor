@@ -256,6 +256,7 @@ export type AgentAssistRequest = z.infer<typeof agentAssistRequestSchema>;
 
 export const cleanTextRequestSchema = z.object({
   text: z.string(),
+  llmSettings: llmSettingsSchema.optional(),
 });
 
 export type CleanTextRequest = z.infer<typeof cleanTextRequestSchema>;

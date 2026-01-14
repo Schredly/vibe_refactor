@@ -1410,18 +1410,10 @@ Evaluate if this answer provides enough specific detail for THIS question only. 
   app.post("/api/cleanText", async (req, res) => {
     try {
       const validatedData = cleanTextRequestSchema.parse(req.body);
-      const { text } = validatedData;
+      const { text, llmSettings } = validatedData;
 
       if (!text.trim()) {
         return res.json({ cleanedText: "" });
-      }
-
-      // Return original text if LLM is not available
-      const { client: openai, model } = getOpenAIClient();
-      
-      if (!openai) {
-        console.log("LLM not configured, returning original text");
-        return res.json({ cleanedText: text });
       }
 
       const systemPrompt = `You are a text editor. Clean up the following text by:
@@ -1442,6 +1434,63 @@ IMPORTANT RULES:
         { role: "user" as const, content: text },
       ];
       const cleanStartTime = Date.now();
+
+      // Try custom LLM settings first
+      const llmClient = getLLMClient(llmSettings);
+      
+      if (llmClient) {
+        try {
+          console.log(`Calling ${llmClient.provider} (${llmClient.model}) to clean text...`);
+          
+          const cleanedText = await llmClient.chat({
+            messages: cleanMessages,
+            maxTokens: 1000,
+          });
+          
+          const durationMs = Date.now() - cleanStartTime;
+          
+          await logLlmCall({
+            stepName: "cleanText",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: cleanMessages,
+            outputContent: cleanedText || null,
+            durationMs,
+            status: cleanedText ? "success" : "error",
+            errorMessage: cleanedText ? undefined : "Empty response",
+          });
+          
+          if (!cleanedText) {
+            return res.json({ cleanedText: text });
+          }
+          
+          return res.json({ cleanedText: cleanedText.trim() });
+        } catch (aiError) {
+          const durationMs = Date.now() - cleanStartTime;
+          console.error("LLM API error for clean text:", aiError);
+          
+          await logLlmCall({
+            stepName: "cleanText",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: cleanMessages,
+            outputContent: null,
+            durationMs,
+            status: aiError instanceof Error && aiError.message.includes("timeout") ? "timeout" : "error",
+            errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+          });
+          
+          return res.json({ cleanedText: text });
+        }
+      }
+      
+      // Fall back to default OpenAI client
+      const { client: openai, model } = getOpenAIClient();
+      
+      if (!openai) {
+        console.log("LLM not configured, returning original text");
+        return res.json({ cleanedText: text });
+      }
 
       try {
         console.log("Calling OpenAI to clean text...");
