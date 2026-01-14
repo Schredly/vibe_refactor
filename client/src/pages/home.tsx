@@ -64,15 +64,21 @@ export default function Home() {
     setQuestions(questions);
     setScriptContent(content, source);
     setCurrentStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     
     if (activeProject) {
       generateContext(activeProject.name, questions);
     }
   }, [setQuestions, setScriptContent, setCurrentStep, activeProject, generateContext]);
 
+  const goToStep = useCallback((step: number) => {
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [setCurrentStep]);
+
   const handleStepClick = (step: number) => {
     if (step <= currentStep) {
-      setCurrentStep(step);
+      goToStep(step);
     }
   };
 
@@ -122,7 +128,7 @@ export default function Home() {
             projectName={activeProject.name}
             agentContext={activeProject.agentContext}
             onUpdateQuestion={updateQuestion}
-            onContinue={() => setCurrentStep(3)}
+            onContinue={() => goToStep(3)}
           />
         );
       case 3:
@@ -133,7 +139,7 @@ export default function Home() {
             projectName={activeProject.name}
             detailedSummary={activeProject.detailedSummary}
             onSaveDetailedSummary={setDetailedSummary}
-            onContinue={() => setCurrentStep(4)}
+            onContinue={() => goToStep(4)}
           />
         );
       case 4:
@@ -145,7 +151,7 @@ export default function Home() {
             questions={activeProject.questions || []}
             prompts={activeProject.generatedPrompts}
             onSavePrompts={setGeneratedPrompts}
-            onContinue={() => setCurrentStep(5)}
+            onContinue={() => goToStep(5)}
           />
         );
       case 5:
