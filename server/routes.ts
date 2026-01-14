@@ -796,31 +796,19 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         ? `\nAI/Agent Architecture:\n${detailedSummary.aiArchitecture.roles.map((r: { name: string; responsibilities: string[] }) => `- ${r.name}: ${r.responsibilities.join(", ")}`).join("\n")}`
         : "";
 
-      const systemPrompt = `You are generating implementation-ready prompts for an AI coding agent to build an MVP.
+      const systemPrompt = `Generate 5 implementation-ready prompts for an AI coding agent.
 
-CRITICAL OUTPUT FORMAT - You MUST output ONLY this exact JSON structure:
-{"prompts": [{"id": "1", "sequence": 1, "category": "...", "title": "...", "roles": [], "content": "...", "deliverable": "...", "collapsedByDefault": false}, ...]}
+OUTPUT FORMAT (JSON only, no other text):
+{"prompts": [{"id": "1", "sequence": 1, "category": "Setup", "title": "...", "roles": [], "content": "...", "deliverable": "...", "collapsedByDefault": false}]}
 
-Do NOT output anything except this JSON object. No markdown, no explanations, no extra text.
+GENERATE EXACTLY 5 PROMPTS:
+1. Setup & Schema: Tech stack, database tables with field names/types, seed data
+2. Auth & API: Login, roles, all REST endpoints with paths and methods
+3. Core Screens: Main CRUD screens with form fields, buttons, tables
+4. Secondary Features: Dashboard, filters, charts, export
+5. Master Prompt: Single comprehensive prompt combining everything
 
-PROMPT REQUIREMENTS (8-10 prompts organized by technical layer):
-
-1. Setup: Tech stack, folder structure, env config
-2. Schema: Database tables with exact field names and types (uuid, varchar, text, timestamp, etc.), foreign keys, seed data
-3. Auth: Login flow, roles, permissions, middleware
-4. API: All endpoints with HTTP methods, paths, request/response schemas
-5. Services: Reusable backend modules and utilities
-6. Frontend Layout: Routes, auth context, navigation, layout structure
-7-9. Feature Screens: One prompt per major screen with all UI elements, form fields, buttons, table columns, actions
-10. Dashboard: KPIs, charts, filters, export
-
-DETAIL LEVEL - Each prompt content must include:
-- Exact database field names and types (e.g., "id uuid primary key, status varchar, created_at timestamp")
-- Exact API endpoints (e.g., "POST /api/samples/:id/approve")
-- Exact UI element labels and actions
-- Seed data examples (5+ rows per table)
-
-The "content" field should be long and detailed - 500-2000 words per prompt.`;
+Each "content" should be 200-400 words with specific field names, endpoints, and UI elements.`;
 
       const userPrompt = `# PROJECT: ${projectName}
 
