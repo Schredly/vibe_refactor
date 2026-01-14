@@ -1,0 +1,310 @@
+✅ Prompt 1 — Project Setup and Tech Stack
+
+Build a full-stack web app called Legacy BIO that tracks biomarker assay samples from intake to approval.
+Tech stack:
+
+Backend: Node.js with Express
+
+Database: PostgreSQL
+
+Frontend: React with Material UI
+
+Structure: Monorepo with /server and /client
+
+No mobile support; web-only desktop app
+
+No external integrations yet (LIMS stub only)
+
+Initial project setup should include:
+
+Clean folder structure
+
+.env example for database config
+
+Basic README
+
+Login route, status board route, dashboard route placeholders
+
+This is a regulated-style MVP: prioritize correctness, auditability, and clarity over UI flash.
+
+✅ Prompt 2 — Data Model & Migrations
+
+Create the PostgreSQL schema for:
+
+1. users
+
+id (uuid)
+
+username/email
+
+hashed password
+
+role: technician, approver, manager
+
+created_at, last_login
+
+2. samples
+
+id (uuid), sample_id (human readable)
+
+patient_id/study_id
+
+assay_type
+
+received_at
+
+current_status: RECEIVED, IN_PROCESSING, AWAITING_APPROVAL, COMPLETED
+
+result_summary
+
+processing_notes
+
+assigned_technician (FK)
+
+approved_by_user_id (FK)
+
+approved_at
+
+created_at, updated_at
+
+3. status_history
+
+id, sample_id (FK)
+
+from_status, to_status
+
+user_id
+
+changed_at, optional notes
+
+4. audit_log
+
+id
+
+entity_type: sample, user, approval
+
+entity_id
+
+action
+
+user_id
+
+changed_fields JSONB
+
+changed_at, notes
+
+Include migration files and 5 seeded sample rows in various statuses.
+
+✅ Prompt 3 — Auth + Role Routing
+
+Build simple authentication:
+
+Login: username/password with bcrypt hash
+
+Session or JWT-based
+
+Middleware: requireAuth, requireRole(["technician"]) etc.
+
+Store role in session or JWT payload
+
+After login, route user to correct default page:
+
+Technician or Approver → /board
+
+Manager → /dashboard
+
+Bonus: Log every login or failed login attempt to audit_log.
+
+✅ Prompt 4 — REST API Endpoints
+
+Create clean REST endpoints with validation:
+
+Auth
+
+POST /api/login
+
+GET /api/me
+
+Samples
+
+POST /api/samples
+
+GET /api/samples (filters: status, date range, technician, etc.)
+
+GET /api/samples/:id
+
+PATCH /api/samples/:id (notes, result summary)
+
+POST /api/samples/:id/status
+
+POST /api/samples/:id/approve
+
+Status + Audit
+
+GET /api/samples/:id/status-history
+
+GET /api/samples/:id/audit-log
+
+Dashboard
+
+GET /api/dashboard/summary
+
+GET /api/dashboard/turnaround
+
+GET /api/dashboard/delayed
+
+GET /api/dashboard/export.csv
+
+Focus on correct HTTP codes, validation errors, and edge case protection.
+
+✅ Prompt 5 — Audit & History Logger Module
+
+Create a reusable backend module to log:
+
+Audit events (e.g. STATUS_UPDATED, APPROVED_RESULT)
+
+Diffs between old/new values (for audit_log)
+
+Changes in status (for status_history)
+
+Hook it into:
+
+Sample creation
+
+Sample status change
+
+Result summary edits
+
+Approvals
+
+Login and CSV exports
+
+Ensure all records include user_id, timestamp, and clean diff JSON.
+
+✅ Prompt 6 — Frontend Routing + Role Nav
+
+Set up React routes:
+
+/login
+
+/board
+
+/samples/:id
+
+/dashboard
+
+Implement:
+
+Auth context
+
+Role-based route guards
+
+Role-aware top navigation bar
+
+Show “Dashboard” only for managers
+
+Show “Status Board” for all roles
+
+Show logout button and current user’s role
+
+Basic responsive layout for all views.
+
+✅ Prompt 7 — Sample Intake & Status Board
+
+Build the StatusBoard view with:
+
+A) New Sample Form (Technician only)
+
+Sample ID, Assay Type, Date/time received
+
+Optional: patient/study ID, notes
+
+Submit sets status to RECEIVED
+
+Triggers audit + refresh
+
+B) Live Status Table (All roles)
+
+Filter/search controls
+
+Paginated table showing: ID, assay type, status, assigned tech, updated_at
+
+Status change dropdown (technician only): RECEIVED → IN_PROCESSING → AWAITING_APPROVAL
+
+Approver: read-only view
+
+Optional: manager can reassign tech
+
+Status changes trigger API + audit logging.
+
+✅ Prompt 8 — Sample Detail & Audit Trail
+
+Page /samples/:id with 3 sections:
+
+1. Metadata Panel (read-only)
+
+Sample ID, assay, received date, current status, assigned tech
+
+2. Work Area
+
+Technician: can edit processing_notes
+
+Approver: can edit result_summary
+
+Save → PATCH API → audit diff log
+
+3. Approval Button
+
+Visible only if user is approver AND status = AWAITING_APPROVAL
+
+Button sets status to COMPLETED, logs approval metadata
+
+4. Audit Trail
+
+Chronological table of changes (timestamp, user, action)
+
+Expand rows to show changed_fields diffs
+
+Also show status transitions from status_history
+
+✅ Prompt 9 — Manager Dashboard & Export
+
+Manager-only view /dashboard:
+
+A) Summary Tiles
+
+Sample counts by status: Received, In Progress, Awaiting Approval, Completed
+
+B) Turnaround Time
+
+Avg time: completed_at - received_at
+
+Simple table/chart over time range
+
+C) Delayed Samples Table
+
+Samples in status > 24 hrs (configurable)
+
+Columns: ID, current status, time in status
+
+Link to detail
+
+D) CSV Export
+
+Button: Export CSV
+
+Triggers API download of samples with filters
+
+Also logs EXPORT_CSV event
+
+✅ Prompt 10 — API Stub & Future Config
+
+Add a stub config for future LIMS integration:
+
+Add a JSON config file: /server/integrations/lims_stub.json
+
+In code, document where external LIMS APIs could connect
+
+For now, show “Not connected” badge in Dashboard UI
+
+Bonus (optional): Allow toggling of LIMS integration mode from .env to simulate future feature flags.

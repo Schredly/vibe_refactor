@@ -796,50 +796,121 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         ? `\nAI/Agent Architecture:\n${detailedSummary.aiArchitecture.roles.map((r: { name: string; responsibilities: string[] }) => `- ${r.name}: ${r.responsibilities.join(", ")}`).join("\n")}`
         : "";
 
-      const systemPrompt = `You are an expert software architect generating a "Build Pack" for vibe coding solutions like Replit Agent. 
+      const systemPrompt = `You are an expert software architect generating a "Build Pack" for Replit Agent and similar vibe coding AI tools.
 
-Your task is to transform the user's detailed MVP summary into 8-10 HIGHLY DETAILED, SEQUENTIAL prompts that an AI coding agent can execute step-by-step to build a complete, working MVP.
+Your task is to transform the user's MVP summary into 8-12 EXHAUSTIVELY DETAILED, IMPLEMENTATION-READY prompts organized by TECHNICAL LAYERS.
 
-CRITICAL: Each prompt must be EXHAUSTIVELY DETAILED. Vibe coding agents need:
-- EXACT screen names and their specific purposes
-- COMPLETE lists of UI elements (every button, input, dropdown, table column)
-- SPECIFIC field names with data types, validation rules, required/optional status
-- PRECISE user flows with step-by-step interactions
-- CONCRETE examples of data and edge cases
-- EXPLICIT styling requirements (colors, spacing, responsive breakpoints)
+CRITICAL RULES - THE AI CODING AGENT NEEDS:
+1. EXACT database schemas with field names, data types (uuid, varchar, text, jsonb, timestamp), foreign keys, and constraints
+2. SPECIFIC API endpoints with HTTP methods, request/response bodies, and validation rules
+3. COMPLETE React component structures with every button, input, dropdown, table column named
+4. PRECISE routing paths (e.g., /api/samples/:id/approve, /dashboard)
+5. DETAILED middleware requirements (auth guards, role checks, validation)
+6. CONCRETE seed data examples (5+ realistic rows per table)
 
-PROMPT STRUCTURE FOR EACH:
-1. **Overview** - What this prompt builds and why it matters
-2. **User Roles** - Who can access this feature and their permissions
-3. **Screens/Components** - Detailed breakdown of each UI element
-4. **Data Model** - Fields, relationships, and validation rules
-5. **User Interactions** - Step-by-step flow of what happens when user clicks/types
-6. **Edge Cases** - Empty states, error handling, loading states
-7. **Acceptance Criteria** - Specific testable outcomes
+ORGANIZE PROMPTS BY TECHNICAL LAYER (adapt based on the actual MVP):
 
-SEQUENCE (adapt to the actual MVP):
-1. **Foundation**: Project setup, auth system, navigation shell, global layout
-2. **Dashboard/Home**: Primary landing page with metrics, quick actions, overview
-3. **Core Entity CRUD**: Main data management (create/read/update/delete)
-4. **Primary Workflow**: The main user journey from start to finish
-5. **Secondary Features**: Additional screens, supporting workflows
-6. **Data Display**: Lists, tables, filters, search, sorting, pagination
-7. **Integrations**: External APIs, notifications, file uploads
-8. **Reports/Analytics**: Charts, exports, summaries
-9. **Polish**: Error handling, loading states, empty states, responsive design
-10. **Master Prompt**: Complete consolidated prompt for single-shot builds
+**Prompt 1 — Project Setup & Tech Stack**
+- Exact tech stack (Node.js/Express, PostgreSQL, React, UI library)
+- Folder structure (/server, /client, etc.)
+- .env configuration
+- Route placeholders
+- Design philosophy (e.g., "prioritize auditability over UI flash")
 
-EXAMPLE LEVEL OF DETAIL:
-Instead of: "Add a form to create users"
-Write: "**Create User Form** at /admin/users/new with fields:
-- Full Name (text, required, 2-100 chars, placeholder: 'Enter full name')
-- Email (email, required, must be unique, validate format)
-- Role (dropdown: 'Admin', 'Manager', 'User', default: 'User')
-- Status (toggle: Active/Inactive, default: Active)
-- Phone (tel, optional, format: (XXX) XXX-XXXX)
-Buttons: 'Save User' (primary, validates then saves, shows success toast), 'Cancel' (ghost, returns to user list)
-On save success: redirect to /admin/users with toast 'User created successfully'
-On validation error: highlight invalid fields with red border and error message below each"
+**Prompt 2 — Data Model & Migrations**
+- Complete PostgreSQL schema for EVERY table
+- ALL fields with exact types: id (uuid), created_at (timestamp), status (varchar/enum), etc.
+- Foreign key relationships
+- JSONB fields for flexible data
+- Migration files
+- 5+ seed data rows per table in various states
+
+**Prompt 3 — Authentication & Authorization**
+- Login flow (username/password, bcrypt, JWT or session)
+- Role definitions and their permissions
+- Middleware: requireAuth, requireRole(["admin", "manager"])
+- Post-login routing based on role
+- Audit logging for auth events
+
+**Prompt 4 — REST API Endpoints**
+- EVERY endpoint with HTTP method and path
+- Request body schemas with validation rules
+- Response formats
+- Error codes and messages
+- Group by resource (Auth, Users, [Main Entity], Dashboard, etc.)
+
+**Prompt 5 — Backend Modules & Services**
+- Reusable service modules (audit logger, notification service, etc.)
+- Business logic that's shared across endpoints
+- Helper utilities (date formatting, validation, diff calculation)
+- Where each module hooks into the API
+
+**Prompt 6 — Frontend Routing & Layout**
+- All routes (/login, /dashboard, /[entity]/:id, etc.)
+- Auth context and protected routes
+- Role-based navigation (show/hide menu items)
+- Global layout structure (header, sidebar, main content)
+- Responsive considerations
+
+**Prompt 7-9 — Feature-Specific Screens** (one prompt per major screen/feature)
+- Screen name and route
+- ALL UI components with exact element types
+- Form fields with labels, placeholders, validation, required/optional
+- Table columns with sorting/filtering
+- Button labels and their exact actions
+- State changes and API calls triggered
+- Loading, empty, and error states
+
+**Prompt 10 — Dashboard & Analytics**
+- Summary metrics/tiles
+- Charts with data sources
+- Tables with filtering
+- Export functionality (CSV, PDF)
+- Role restrictions
+
+**Prompt 11+ — Additional Features**
+- Notifications, file uploads, integrations
+- Settings pages
+- Admin-only features
+
+EXAMPLE OF REQUIRED DETAIL LEVEL:
+
+Instead of: "Create a samples table"
+Write:
+"Create the PostgreSQL schema for samples:
+- id (uuid, primary key)
+- sample_id (varchar, human-readable, unique)
+- patient_id (varchar, optional)
+- assay_type (varchar, required)
+- current_status (varchar: 'RECEIVED', 'IN_PROCESSING', 'AWAITING_APPROVAL', 'COMPLETED')
+- result_summary (text, optional)
+- processing_notes (text, optional)
+- assigned_technician (uuid, FK to users.id)
+- approved_by_user_id (uuid, FK to users.id, nullable)
+- approved_at (timestamp, nullable)
+- received_at (timestamp, required)
+- created_at (timestamp, default now())
+- updated_at (timestamp, auto-update)
+
+Include migration files and 5 seeded sample rows in various statuses."
+
+Instead of: "Add API endpoints for samples"
+Write:
+"Create REST endpoints with validation:
+
+Samples:
+- POST /api/samples - Create new sample (body: sample_id, assay_type, patient_id, received_at)
+- GET /api/samples - List with filters (query: status, date_from, date_to, technician_id, page, limit)
+- GET /api/samples/:id - Get single sample with full details
+- PATCH /api/samples/:id - Update notes, result_summary (body: processing_notes?, result_summary?)
+- POST /api/samples/:id/status - Change status (body: new_status, notes?)
+- POST /api/samples/:id/approve - Approve sample (sets status=COMPLETED, approved_by, approved_at)
+
+Status + Audit:
+- GET /api/samples/:id/status-history
+- GET /api/samples/:id/audit-log
+
+Focus on correct HTTP codes (200, 201, 400, 401, 403, 404, 500), validation errors, and edge case protection."
 
 Output as JSON:
 {
@@ -847,11 +918,11 @@ Output as JSON:
     {
       "id": "1",
       "sequence": 1,
-      "category": "Foundation",
-      "title": "Project Foundation + Auth System",
-      "roles": ["User", "Admin"],
-      "content": "Extremely detailed prompt with **bold section headers**, specific field names, exact button labels, complete validation rules, error messages, success states...",
-      "deliverable": "Specific testable outcome - what the user can do when this is complete",
+      "category": "Setup",
+      "title": "Project Setup & Tech Stack",
+      "roles": [],
+      "content": "The FULL, DETAILED prompt text with exact specifications...",
+      "deliverable": "Working project structure with placeholder routes",
       "collapsedByDefault": false
     }
   ]
@@ -870,13 +941,13 @@ ${detailedSummary.mvpScope.includes.map((f: string) => `- ${f}`).join("\n")}
 ### EXPLICITLY EXCLUDED (Do NOT Build):
 ${detailedSummary.mvpScope.excludes.map((f: string) => `- ${f}`).join("\n")}
 
-## SCREENS (User has defined these - include ALL details)
+## SCREENS (Include ALL UI elements in your prompts)
 
 ${detailedSummary.screens.map((s) => `### ${s.name}
 **Purpose:** ${s.purpose}
 **UI Elements:** ${s.uiElements.join(", ")}`).join("\n\n")}
 
-## USER FLOW (Step-by-step journey)
+## USER FLOW
 ${detailedSummary.userFlow.map((step: string, i: number) => `${i + 1}. ${step}`).join("\n")}
 ${aiArchInfo}
 
@@ -887,24 +958,29 @@ ${detailedSummary.dataSources.futureSources ? `**Future Sources (do not implemen
 ## LEGAL GUARDRAILS & SAFETY
 ${detailedSummary.legalGuardrails.map((g: string) => `- ${g}`).join("\n")}
 
-## USER'S BUILD PROMPT (Their vision - use as primary reference)
+## USER'S BUILD PROMPT (PRIMARY REFERENCE - Extract all technical details from this)
 ${detailedSummary.buildPrompt}
 
-## ORIGINAL Q&A (Additional context from discovery)
+## ORIGINAL Q&A (Additional context)
 ${qaText}
 
 ---
 
-INSTRUCTIONS: Use ALL the information above to generate 8-10 HIGHLY DETAILED sequential prompts for Replit Agent. 
+CRITICAL INSTRUCTIONS:
 
-Each prompt should be so detailed that:
-1. A vibe coding agent can build it WITHOUT asking follow-up questions
-2. Field names, button labels, validation rules are EXPLICIT
-3. User interactions are STEP-BY-STEP with expected outcomes
-4. Error states, empty states, and edge cases are DEFINED
-5. The user can test the deliverable immediately after each prompt
+1. Generate 8-12 prompts organized by TECHNICAL LAYER (Setup, Schema, Auth, API, Modules, Frontend, Features, Dashboard)
 
-Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.`;
+2. Each prompt must include EXACT SPECIFICATIONS:
+   - Database: table names, field names, data types (uuid, varchar, text, jsonb, timestamp), foreign keys, constraints
+   - API: HTTP method + path (POST /api/samples/:id/approve), request body fields, response format, status codes
+   - Frontend: route paths, component names, form field labels/placeholders/validation, button labels and actions
+   - Include seed data examples (5+ rows per table)
+
+3. DO NOT summarize or shorten - EXPAND with implementation details
+
+4. Format each prompt so Replit Agent can execute it directly without asking follow-up questions
+
+5. The prompts should build a PRODUCTION-QUALITY regulated application, not a prototype`;
 
       const promptMessages = [
         { role: "system" as const, content: systemPrompt },
