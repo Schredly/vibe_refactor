@@ -108,6 +108,7 @@ export default function Home() {
       case 1:
         return (
           <LoadScriptStep
+            key={activeProject.id}
             onQuestionsExtracted={handleQuestionsExtracted}
             initialQuestions={activeProject.questions}
             initialContent={activeProject.scriptContent}
@@ -116,6 +117,7 @@ export default function Home() {
       case 2:
         return (
           <CaptureAnswersStep
+            key={activeProject.id}
             questions={activeProject.questions || []}
             projectName={activeProject.name}
             agentContext={activeProject.agentContext}
@@ -126,6 +128,7 @@ export default function Home() {
       case 3:
         return (
           <ReviewSummarizeStep
+            key={activeProject.id}
             questions={activeProject.questions || []}
             projectName={activeProject.name}
             detailedSummary={activeProject.detailedSummary}
@@ -136,6 +139,7 @@ export default function Home() {
       case 4:
         return (
           <GenerateBuildPackStep
+            key={activeProject.id}
             projectName={activeProject.name}
             detailedSummary={activeProject.detailedSummary}
             questions={activeProject.questions || []}
@@ -147,6 +151,7 @@ export default function Home() {
       case 5:
         return (
           <CreateAppStep
+            key={activeProject.id}
             projectName={activeProject.name}
             prompts={activeProject.generatedPrompts}
             detailedSummary={activeProject.detailedSummary}
