@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Rocket, Copy, Check, Download, FileText, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Rocket, Download, FileText, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,12 +82,17 @@ function QualityCheck({ detailedSummary, prompts }: { detailedSummary: DetailedS
 
 export function CreateAppStep({ projectName, prompts, detailedSummary }: CreateAppStepProps) {
   const [showModal, setShowModal] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [appName, setAppName] = useState("");
+  const [appDescription, setAppDescription] = useState("");
   const { toast } = useToast();
 
-  const getMasterPrompt = () => {
+  const isFormValid = appName.trim().length > 0 && appDescription.trim().length > 0;
+
+  const getMasterPrompt = (name: string, description: string) => {
     if (!prompts) return "";
-    return `# ${projectName} - MVP Build Specification
+    return `# ${name} - ${description}
+
+## MVP Build Specification
 
 ${prompts.map((p) => `## ${p.category}: ${p.title}
 
@@ -92,15 +100,25 @@ ${p.content}`).join("\n\n---\n\n")}`;
   };
 
   const handleLaunchBuild = () => {
-    const masterPrompt = getMasterPrompt();
-    navigator.clipboard.writeText(masterPrompt);
-    setCopied(true);
+    setAppName(projectName);
+    setAppDescription("");
     setShowModal(true);
-    setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleDoIt = () => {
+    const masterPrompt = getMasterPrompt(appName.trim(), appDescription.trim());
+    const encodedPrompt = encodeURIComponent(masterPrompt);
+    const replitUrl = `https://replit.com/create?prompt=${encodedPrompt}&title=${encodeURIComponent(appName.trim())}`;
+    window.open(replitUrl, "_blank", "noopener,noreferrer");
+    setShowModal(false);
+    toast({
+      title: "Building Started",
+      description: `Opening Replit to create "${appName.trim()}"...`,
+    });
   };
 
   const handleDownloadMarkdown = () => {
-    const content = getMasterPrompt();
+    const content = getMasterPrompt(projectName, "MVP Build Specification");
     const blob = new Blob([content], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -196,61 +214,48 @@ ${p.content}`).join("\n\n---\n\n")}`;
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {copied ? (
-                <Check className="w-5 h-5 text-green-600" />
-              ) : (
-                <Copy className="w-5 h-5" />
-              )}
-              Master Prompt Copied!
+              <Rocket className="w-5 h-5 text-primary" />
+              Name Your Application
             </DialogTitle>
             <DialogDescription>
-              Follow these steps to start building your MVP.
+              Enter your application details to start building with Replit Agent.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="flex items-start gap-4">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 font-semibold">
-                1
-              </div>
-              <div>
-                <p className="font-medium">Open Replit Agent</p>
-                <p className="text-sm text-muted-foreground">
-                  Go to Replit and create a new Repl or open an existing one.
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="app-name">Application Name *</Label>
+              <Input
+                id="app-name"
+                placeholder="My Awesome App"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                data-testid="input-app-name"
+              />
             </div>
-            <div className="flex items-start gap-4">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 font-semibold">
-                2
-              </div>
-              <div>
-                <p className="font-medium">Paste the Prompt</p>
-                <p className="text-sm text-muted-foreground">
-                  Paste the Master Prompt into the Agent chat and let it analyze your requirements.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 font-semibold">
-                3
-              </div>
-              <div>
-                <p className="font-medium">Iterate & Refine</p>
-                <p className="text-sm text-muted-foreground">
-                  Work with the Agent to implement each feature, reviewing and adjusting as needed.
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="app-description">Short Description *</Label>
+              <Textarea
+                id="app-description"
+                placeholder="A brief description of what your app does..."
+                value={appDescription}
+                onChange={(e) => setAppDescription(e.target.value)}
+                rows={3}
+                data-testid="input-app-description"
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowModal(false)}>
-              Close
+            <Button variant="outline" onClick={() => setShowModal(false)} data-testid="button-cancel">
+              Cancel
             </Button>
-            <Button asChild>
-              <a href="https://replit.com/~" target="_blank" rel="noopener noreferrer" className="gap-2">
-                Open Replit
-                <ExternalLink className="w-4 h-4" />
-              </a>
+            <Button
+              onClick={handleDoIt}
+              disabled={!isFormValid}
+              className="gap-2"
+              data-testid="button-do-it"
+            >
+              <Rocket className="w-4 h-4" />
+              Do It!
             </Button>
           </div>
         </DialogContent>
