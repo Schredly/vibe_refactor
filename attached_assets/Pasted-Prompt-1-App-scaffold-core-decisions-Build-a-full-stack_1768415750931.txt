@@ -1,0 +1,521 @@
+Prompt 1 — App scaffold + core decisions
+
+Build a full-stack web MVP called Legacy BIO to track biomarker assay samples from intake → processing → approval.
+Tech stack requirements:
+
+Backend: Node.js + Express
+
+Database: PostgreSQL
+
+Frontend: React
+
+UI: Material UI (or a minimal component library), responsive for desktop/laptop (no mobile app features)
+
+Use REST APIs (no GraphQL)
+
+Core product requirements:
+
+Track Sample lifecycle with clear statuses and timestamps
+
+Role-based access control with roles: technician, approver, manager
+
+Auditability first: every meaningful change creates an immutable audit record (who/what/when)
+
+Moderate volume performance: pagination + server-side filtering (no heavy optimization)
+
+Create a monorepo structure:
+
+/server for Express
+
+/client for React
+
+Shared env config and a clean README with setup instructions
+
+Include database migrations/seed scripts
+
+Deliverables:
+
+Working login + session handling
+
+DB schema + migrations
+
+Basic pages scaffolded: Login, Status Board, Sample Detail, Manager Dashboard
+
+Placeholder “API stub layer” for future LIMS integration (but do NOT integrate external systems)
+
+Prompt 2 — Database schema + migrations
+
+Design a PostgreSQL schema that supports:
+Entities:
+
+users
+
+id (uuid), username/email, password_hash
+
+display_name
+
+roles (either single role column OR join table if you prefer, but keep it simple)
+
+created_at, last_login_at
+
+samples
+
+id (uuid)
+
+sample_id (string, unique human identifier)
+
+patient_or_study_id (string placeholder)
+
+assay_type (string)
+
+received_at (timestamp)
+
+status (enum-like string)
+
+assigned_technician_id (nullable FK users)
+
+processing_notes (text)
+
+result_summary (text)
+
+approved_by_user_id (nullable FK users)
+
+approved_at (nullable timestamp)
+
+created_at, updated_at
+
+status_history
+
+id (uuid)
+
+sample_id (FK)
+
+from_status, to_status
+
+changed_by_user_id
+
+changed_at timestamp
+
+optional comment
+
+audit_log (immutable append-only)
+
+id (uuid)
+
+entity_type (e.g., “sample”, “approval”, “user”)
+
+entity_id (uuid)
+
+action (e.g., CREATED_SAMPLE, UPDATED_STATUS, UPDATED_FIELDS, APPROVED_RESULT, LOGIN)
+
+changed_by_user_id
+
+changed_at timestamp
+
+changed_fields JSON (store field diffs: before/after for whitelisted fields)
+
+notes text optional
+
+Status model (simple strings):
+
+RECEIVED
+
+IN_PROCESSING
+
+AWAITING_APPROVAL
+
+COMPLETED
+
+Requirements:
+
+Implement migrations to create tables + indexes (important ones: samples.status, samples.received_at, samples.assay_type, status_history.sample_id, audit_log.entity_type/entity_id/changed_at)
+
+Add seed script to create 1 manager, 1 approver, 2 technicians, plus ~20 sample records in mixed statuses
+
+Prompt 3 — Authentication + RBAC
+
+Implement simple authentication (no SSO):
+
+Login with username + password
+
+Password hashing (bcrypt)
+
+Session-based auth (cookie session) OR JWT stored securely; choose one and implement correctly
+
+Middleware: requireAuth and requireRole(roles[])
+
+RBAC rules:
+
+Technician:
+
+Create sample
+
+Update status (except cannot set COMPLETED directly)
+
+Edit processing_notes
+
+View sample detail + audit trail
+
+Approver:
+
+View all samples
+
+Edit result_summary
+
+Approve result (sets status to COMPLETED, sets approved_by + approved_at)
+
+Manager:
+
+View all samples + dashboard metrics + export CSV
+
+View sample detail + audit trail
+
+(Optional) can assign technician to sample
+
+UX requirement:
+
+Login screen should route user to the correct landing page:
+
+Technician/Approver → Status Board
+
+Manager → Dashboard (with nav access to Status Board)
+
+Also log security events into audit_log:
+
+Successful login (LOGIN_SUCCESS)
+
+Failed login attempt (LOGIN_FAILED) with username and timestamp (don’t store raw password)
+
+Prompt 4 — Audit logging engine (core system behavior)
+
+Build a reusable audit logging utility in the backend:
+
+A single function like logAudit({entityType, entityId, action, userId, changedFields, notes})
+
+For changedFields, store a JSON diff in a consistent format:
+
+{ fieldName: { before: <value>, after: <value> }, ... }
+
+Ensure audit_log is append-only: no updates/deletes (enforce in code; optional DB rule)
+
+Trigger audit records for:
+
+Sample created
+
+Status changed
+
+Sample fields edited (processing_notes, result_summary, assigned technician)
+
+Approval action
+
+CSV export run (EXPORT_CSV) with filters used
+
+Manager dashboard viewed (optional: VIEW_DASHBOARD)
+
+Also write status changes to status_history:
+
+On every status change, create a row capturing from/to/user/timestamp/comment
+
+Return audit trail in chronological order (newest last) for a sample.
+
+Prompt 5 — Backend APIs (REST) with filters + pagination
+
+Implement REST endpoints with validation and role enforcement:
+
+Auth:
+
+POST /api/auth/login
+
+POST /api/auth/logout
+
+GET /api/auth/me
+
+Samples:
+
+POST /api/samples (technician)
+
+GET /api/samples (all roles) with server-side filters + pagination:
+
+filters: sampleId (partial), status, assayType, receivedFrom, receivedTo, assignedTechnicianId
+
+pagination: page, pageSize
+
+sort: default updated_at desc
+
+GET /api/samples/:id
+
+PATCH /api/samples/:id (role-based field editing)
+
+POST /api/samples/:id/status to change status with {toStatus, comment}
+
+Approval:
+
+POST /api/samples/:id/approve (approver only)
+
+Valid only if current status is AWAITING_APPROVAL
+
+Writes audit + status history + sets approved fields
+
+Audit:
+
+GET /api/samples/:id/audit returns audit trail
+
+GET /api/samples/:id/history returns status history
+
+Metrics & dashboard:
+
+GET /api/dashboard/summary (manager only)
+
+counts by status given optional filters: date range, assayType, technician
+
+GET /api/dashboard/turnaround (manager only)
+
+average turnaround time: avg(completed_at - received_at) for completed samples in range
+
+GET /api/dashboard/delayed (manager only)
+
+“delayed samples” defined as samples not completed and in same status longer than X hours (configurable, default 24)
+
+GET /api/dashboard/export.csv (manager only)
+
+generates CSV of sample rows + computed turnaround time where applicable, includes filter metadata in header comments
+
+API design requirements:
+
+Use consistent error responses
+
+Validate payloads (zod/joi) and sanitize inputs
+
+Avoid N+1 queries; do joins where needed
+
+Make sure pagination returns {items, page, pageSize, total}
+
+Prompt 6 — Frontend routing + navigation (role-aware)
+
+Build the React app with:
+
+Routes:
+
+/login
+
+/board (Status Board)
+
+/samples/:id (Sample Detail)
+
+/dashboard (Manager)
+
+Role-based route guarding:
+
+Redirect unauthenticated users to /login
+
+Redirect manager landing to /dashboard
+
+Technician/Approver landing to /board
+
+Add a simple top nav:
+
+“Status Board” visible to all authenticated users
+
+“Dashboard” visible only to manager
+
+User menu showing name + role + Logout
+
+Keep UI simple, “auditability over polish”:
+
+Use tables, forms, and clear status badges
+
+Show last updated timestamp everywhere relevant
+
+Provide “help/contact admin” text on login screen
+
+Prompt 7 — Screen 1: Login & Role Selection behavior
+
+Implement the Login screen:
+
+Username + password fields
+
+Login button
+
+Basic error message area
+
+Help text: “Contact admin if you can’t log in.”
+
+Behavior:
+
+On successful login, call /api/auth/me
+
+Store session state (context)
+
+Route user:
+
+manager → /dashboard
+
+technician/approver → /board
+
+No multi-role complexity unless you already modeled it; keep it simple.
+
+Prompt 8 — Screen 2: Sample Intake & Status Board (technician-first)
+
+Build the Status Board page with two main sections:
+
+A) New Sample Intake Form (technician only; hide for approver/manager if desired)
+Fields:
+
+Sample ID (required, unique)
+
+Patient/Study ID placeholder (optional)
+
+Assay Type (required)
+
+Received date/time (default = now; allow edit)
+
+Optional notes (stored in processing_notes initially or a separate “intake_notes” field if you created one)
+
+On submit:
+
+Creates sample with status RECEIVED
+
+Writes audit record CREATED_SAMPLE
+
+Refreshes table and shows success toast
+
+B) Live Samples Table (all roles)
+Requirements:
+
+Filters across top: sampleId search, status dropdown, assay type, date range, assigned technician
+
+Paginated table with columns:
+
+Sample ID (clickable → detail)
+
+Assay Type
+
+Current Status (badge)
+
+Assigned Technician
+
+Last Updated
+
+Quick Actions (role-based)
+
+Inline status update control:
+
+Technician can move: RECEIVED → IN_PROCESSING → AWAITING_APPROVAL
+
+Approver can’t change status directly here (approval happens in detail)
+
+Manager can optionally reassign technician (simple dropdown)
+
+Every status change:
+
+Calls /api/samples/:id/status
+
+Writes status_history + audit_log
+
+Optimistically updates UI, then reconciles
+
+Prompt 9 — Screen 3: Sample Detail & Audit Trail (approval control)
+
+Build Sample Detail page with three panels:
+
+Sample Summary (read-only metadata)
+
+Sample ID, assay type, received_at, current status
+
+assigned technician
+
+last updated
+
+approval info (approved_by, approved_at) if completed
+
+Editable Work Area
+
+Technician: edit processing_notes only
+
+Approver: edit result_summary (and optionally processing_notes read-only)
+
+Manager: read-only (or allow notes edit if you prefer, but keep minimal)
+
+Save button that triggers PATCH and logs UPDATED_FIELDS with field diffs
+
+Approval
+
+Show an “Approve Result” button only for approver role
+
+Button enabled only when status is AWAITING_APPROVAL
+
+On approve:
+
+Calls /api/samples/:id/approve
+
+Sets status COMPLETED
+
+Shows confirmation
+
+Refreshes audit + history
+
+Audit Trail (chronological)
+
+A table with: timestamp, user, action, changed fields summary
+
+Expand row to show full diff JSON in readable format
+
+Also show Status History list/table (from_status → to_status with timestamps)
+
+Design goal:
+
+Make it obvious who did what and when.
+
+Prompt 10 — Screen 4: Manager Dashboard & Reporting
+
+Build the Manager Dashboard page with:
+
+Filters at top:
+
+Date range (received date range)
+
+Assay type
+
+Technician
+
+Delayed threshold hours (default 24)
+
+Section A: Status Summary Tiles
+
+Received, In Processing, Awaiting Approval, Completed
+
+Each tile shows count and is clickable to navigate to Status Board pre-filtered
+
+Section B: Turnaround Time
+
+Show average turnaround time for completed samples in range
+
+Display as:
+
+a small table (or simple chart) showing avg turnaround overall
+
+optionally break down by assay type if easy (keep simple)
+
+Turnaround definition:
+
+approved_at - received_at for completed samples
+
+Section C: Delayed Samples Table
+
+“Delayed” = not completed AND (now - last_status_change_time) > threshold
+
+Table columns: sample id, assay type, current status, time-in-status, assigned technician, link to detail
+
+Section D: CSV Export
+
+Button “Export CSV”
+
+Calls /api/dashboard/export.csv with current filters
+
+Download file named like legacy-bio-report_YYYY-MM-DD.csv
+
+Log audit action EXPORT_CSV with filter parameters
+
+Also include a small “Integration Stub” card:
+
+Show “Integrations: Not connected (stub)” and a placeholder config object location in code, indicating where future LIMS integration would be added.

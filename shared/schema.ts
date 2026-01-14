@@ -126,15 +126,14 @@ export const agentContextSchema = z.object({
 export type AgentContext = z.infer<typeof agentContextSchema>;
 
 // LLM Settings schema - configurable AI provider
-export const llmProviderSchema = z.enum(["openai", "anthropic", "custom"]);
+export const llmProviderSchema = z.enum(["openai", "anthropic", "gemini", "groq", "custom"]);
 export type LLMProvider = z.infer<typeof llmProviderSchema>;
 
 export const llmSettingsSchema = z.object({
   provider: llmProviderSchema.default("openai"),
   model: z.string().default("gpt-4o"),
-  apiKey: z.string().optional(), // User's own API key (optional - uses Replit integration if not set)
+  apiKey: z.string().optional(), // User's own API key (stored locally, never persisted on server)
   baseUrl: z.string().optional(), // Custom base URL for API
-  useReplitIntegration: z.boolean().default(true), // Whether to use Replit's built-in OpenAI integration
 });
 
 export type LLMSettings = z.infer<typeof llmSettingsSchema>;
@@ -143,7 +142,6 @@ export type LLMSettings = z.infer<typeof llmSettingsSchema>;
 export const defaultLLMSettings: LLMSettings = {
   provider: "openai",
   model: "gpt-4o",
-  useReplitIntegration: true,
 };
 
 // Vibe Coding Platform schema - target platforms for generated prompts
