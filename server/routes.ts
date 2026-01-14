@@ -848,70 +848,94 @@ Generate prompts that would result in a PRODUCTION-QUALITY MVP, not a prototype.
       ];
       const promptStartTime = Date.now();
 
-      try {
-        console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed prompt generation...`);
-        
-        // 4 minute timeout for detailed prompt generation (complex task)
-        const timeoutPromise = new Promise<string | null>((_, reject) => 
-          setTimeout(() => reject(new Error("LLM timeout")), 240000)
-        );
-        
-        const llmPromise = llmClient.chat({
-          messages: promptMessages,
-          maxTokens: 16384,
-          jsonMode: llmClient.provider === "openai",
-        });
+      // Retry logic for LLM calls
+      const MAX_RETRIES = 3;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`Calling ${llmClient.provider} (${llmClient.model}) for detailed prompt generation (attempt ${attempt}/${MAX_RETRIES})...`);
+          
+          // 4 minute timeout for detailed prompt generation (complex task)
+          const timeoutPromise = new Promise<string | null>((_, reject) => 
+            setTimeout(() => reject(new Error("LLM timeout")), 240000)
+          );
+          
+          const llmPromise = llmClient.chat({
+            messages: promptMessages,
+            maxTokens: 16384,
+            jsonMode: llmClient.provider === "openai",
+          });
 
-        const content = await Promise.race([llmPromise, timeoutPromise]);
-        const durationMs = Date.now() - promptStartTime;
-        console.log("LLM response received, content length:", content?.length || 0);
-        
-        // Log the call
-        await logLlmCall({
-          stepName: "generatePrompts",
-          provider: llmClient.provider,
-          model: llmClient.model,
-          inputMessages: promptMessages,
-          outputContent: content,
-          durationMs,
-          status: content ? "success" : "error",
-          errorMessage: content ? undefined : "Empty response from LLM",
-        });
-        
-        if (!content) {
-          console.log("Empty LLM response, using fallback");
-          return res.json(generateMockPrompts(projectName));
+          const content = await Promise.race([llmPromise, timeoutPromise]);
+          const durationMs = Date.now() - promptStartTime;
+          console.log(`LLM response received (attempt ${attempt}), content length:`, content?.length || 0);
+          
+          // Log the call
+          await logLlmCall({
+            stepName: "generatePrompts",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: promptMessages,
+            outputContent: content,
+            durationMs,
+            status: content ? "success" : "error",
+            errorMessage: content ? undefined : `Empty response from LLM (attempt ${attempt})`,
+          });
+          
+          if (!content) {
+            console.log(`Empty LLM response on attempt ${attempt}, ${attempt < MAX_RETRIES ? 'retrying...' : 'using fallback'}`);
+            if (attempt < MAX_RETRIES) {
+              // Wait before retrying (exponential backoff: 2s, 4s)
+              await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+              continue;
+            }
+            return res.json(generateMockPrompts(projectName));
+          }
+
+          // Parse JSON, handling possible markdown code blocks from Anthropic
+          let jsonContent = content;
+          const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            jsonContent = jsonMatch[1].trim();
+          }
+
+          const result = JSON.parse(jsonContent);
+          console.log("Parsed prompts count:", result.prompts?.length || 0);
+          return res.json(result);
+        } catch (aiError) {
+          lastError = aiError instanceof Error ? aiError : new Error(String(aiError));
+          const durationMs = Date.now() - promptStartTime;
+          console.error(`LLM API error (attempt ${attempt}):`, aiError);
+          
+          // Log the error
+          await logLlmCall({
+            stepName: "generatePrompts",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: promptMessages,
+            outputContent: null,
+            durationMs,
+            status: lastError.message === "LLM timeout" ? "timeout" : "error",
+            errorMessage: `${lastError.message} (attempt ${attempt})`,
+          });
+          
+          // Don't retry on timeout - it's too slow
+          if (lastError.message === "LLM timeout") {
+            console.log("Timeout occurred, falling back to mock prompts");
+            return res.json(generateMockPrompts(projectName));
+          }
+          
+          if (attempt < MAX_RETRIES) {
+            console.log(`Retrying after error (attempt ${attempt + 1})...`);
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+          }
         }
-
-        // Parse JSON, handling possible markdown code blocks from Anthropic
-        let jsonContent = content;
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-          jsonContent = jsonMatch[1].trim();
-        }
-
-        const result = JSON.parse(jsonContent);
-        console.log("Parsed prompts count:", result.prompts?.length || 0);
-        return res.json(result);
-      } catch (aiError) {
-        const durationMs = Date.now() - promptStartTime;
-        console.error("LLM API error:", aiError);
-        
-        // Log the error
-        await logLlmCall({
-          stepName: "generatePrompts",
-          provider: llmClient.provider,
-          model: llmClient.model,
-          inputMessages: promptMessages,
-          outputContent: null,
-          durationMs,
-          status: aiError instanceof Error && aiError.message === "LLM timeout" ? "timeout" : "error",
-          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
-        });
-        
-        console.log("Falling back to mock prompts");
-        return res.json(generateMockPrompts(projectName));
       }
+      
+      // All retries exhausted
+      console.log("All retries exhausted, falling back to mock prompts");
+      return res.json(generateMockPrompts(projectName));
     } catch (error) {
       console.error("Error generating prompts:", error);
       if (error instanceof z.ZodError) {
