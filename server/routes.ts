@@ -1556,30 +1556,7 @@ IMPORTANT RULES:
   app.post("/api/researchExamples", async (req, res) => {
     try {
       const validatedData = researchExamplesRequestSchema.parse(req.body);
-      const { projectName, contextSummary, currentQuestion, userAnswer } = validatedData;
-
-      // Return mock data if LLM is not available
-      const { client: openai, model } = getOpenAIClient();
-      
-      if (!openai) {
-        console.log("LLM not configured, returning mock research examples");
-        return res.json({
-          insights: [
-            "Consider how similar solutions in the market approach this problem",
-            "Think about edge cases and how users might work around limitations",
-          ],
-          concreteExamples: [
-            {
-              title: "Example Implementation",
-              description: "A common approach is to use a modular architecture that allows for flexibility.",
-              relevance: "Applicable to your MVP scope",
-            },
-          ],
-          industryPractices: [
-            "Most successful products in this space start with a focused feature set",
-          ],
-        });
-      }
+      const { projectName, contextSummary, currentQuestion, userAnswer, llmSettings } = validatedData;
 
       const systemPrompt = `You are a product research assistant helping to refine MVP requirements. Based on the project context and the user's answer to a specific question, provide:
 
@@ -1607,6 +1584,95 @@ Respond in JSON format:
         { role: "user" as const, content: `Question: ${currentQuestion}\n\nUser's Answer: ${userAnswer}\n\nProvide research and examples to help make this answer more concrete and well-informed.` },
       ];
       const researchStartTime = Date.now();
+
+      // Try custom LLM settings first
+      const llmClient = getLLMClient(llmSettings);
+      
+      if (llmClient) {
+        try {
+          console.log(`Calling ${llmClient.provider} (${llmClient.model}) for research examples...`);
+          
+          const content = await llmClient.chat({
+            messages: researchMessages,
+            maxTokens: 2000,
+            jsonMode: true,
+          });
+          
+          const durationMs = Date.now() - researchStartTime;
+          
+          await logLlmCall({
+            stepName: "researchExamples",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: researchMessages,
+            outputContent: content || null,
+            durationMs,
+            status: content ? "success" : "error",
+            errorMessage: content ? undefined : "Empty response",
+          });
+          
+          if (!content) {
+            throw new Error("Empty response from LLM");
+          }
+
+          // Parse JSON response
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            throw new Error("Could not parse JSON from response");
+          }
+
+          const parsed = JSON.parse(jsonMatch[0]);
+          
+          return res.json({
+            insights: parsed.insights || [],
+            concreteExamples: parsed.concreteExamples || [],
+            industryPractices: parsed.industryPractices || [],
+          });
+        } catch (aiError) {
+          const durationMs = Date.now() - researchStartTime;
+          console.error("LLM API error for research examples:", aiError);
+          
+          await logLlmCall({
+            stepName: "researchExamples",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: researchMessages,
+            outputContent: null,
+            durationMs,
+            status: aiError instanceof Error && aiError.message.includes("timeout") ? "timeout" : "error",
+            errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+          });
+          
+          return res.json({
+            insights: ["Research temporarily unavailable. Try again in a moment."],
+            concreteExamples: [],
+            industryPractices: [],
+          });
+        }
+      }
+      
+      // Fall back to default OpenAI client
+      const { client: openai, model } = getOpenAIClient();
+      
+      if (!openai) {
+        console.log("LLM not configured, returning mock research examples");
+        return res.json({
+          insights: [
+            "Consider how similar solutions in the market approach this problem",
+            "Think about edge cases and how users might work around limitations",
+          ],
+          concreteExamples: [
+            {
+              title: "Example Implementation",
+              description: "A common approach is to use a modular architecture that allows for flexibility.",
+              relevance: "Applicable to your MVP scope",
+            },
+          ],
+          industryPractices: [
+            "Most successful products in this space start with a focused feature set",
+          ],
+        });
+      }
 
       try {
         console.log("Calling OpenAI for research examples...");

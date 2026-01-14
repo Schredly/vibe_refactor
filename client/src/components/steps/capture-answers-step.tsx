@@ -258,12 +258,16 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
     setResearchLoading(question.id);
 
     try {
+      const { loadLLMSettings } = await import("@/components/settings-dialog");
+      const llmSettings = loadLLMSettings();
+      
       const response = await Promise.race([
         apiRequest("POST", "/api/researchExamples", {
           projectName,
           contextSummary: agentContext?.systemPrompt || "",
           currentQuestion: question.text,
           userAnswer: question.answerText,
+          llmSettings,
         }),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error("Request timeout")), 45000)

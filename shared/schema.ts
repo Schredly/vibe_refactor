@@ -267,6 +267,7 @@ export const researchExamplesRequestSchema = z.object({
   contextSummary: z.string(),
   currentQuestion: z.string(),
   userAnswer: z.string(),
+  llmSettings: llmSettingsSchema.optional(),
 });
 
 export type ResearchExamplesRequest = z.infer<typeof researchExamplesRequestSchema>;
