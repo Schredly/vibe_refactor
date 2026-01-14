@@ -30,8 +30,10 @@ const LLM_STORAGE_KEY = "vibe-refactor-llm-settings";
 const PLATFORM_STORAGE_KEY = "vibe-refactor-platform-settings";
 
 const providerModels: Record<LLMProvider, string[]> = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-  anthropic: ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
+  openai: ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
+  anthropic: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+  gemini: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
+  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"],
   custom: [],
 };
 
@@ -103,7 +105,6 @@ export function SettingsDialog() {
       ...llmSettings,
       provider,
       model: models.length > 0 ? models[0] : llmSettings.model,
-      useReplitIntegration: provider === "openai" ? llmSettings.useReplitIntegration : false,
     });
   };
 
@@ -181,7 +182,8 @@ export function SettingsDialog() {
     setOpen(false);
   };
 
-  const showApiKeyField = !llmSettings.useReplitIntegration || llmSettings.provider !== "openai";
+  // Always show API key field - users must provide their own key
+  const showApiKeyField = true;
   const selectedPlatform = platformSettings.platforms.find((p) => p.id === platformSettings.selectedPlatformId);
 
   return (
@@ -225,25 +227,12 @@ export function SettingsDialog() {
                 <SelectContent>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
+                  <SelectItem value="groq">Groq</SelectItem>
                   <SelectItem value="custom">Custom (OpenAI-compatible)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            {llmSettings.provider === "openai" && (
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="use-replit">Use Replit Integration</Label>
-                  <p className="text-xs text-muted-foreground">Use Replit's built-in OpenAI integration</p>
-                </div>
-                <Switch
-                  id="use-replit"
-                  checked={llmSettings.useReplitIntegration}
-                  onCheckedChange={(checked) => setLlmSettings({ ...llmSettings, useReplitIntegration: checked })}
-                  data-testid="switch-replit-integration"
-                />
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label htmlFor="model">Model</Label>
