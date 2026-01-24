@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, Link, Trash2, GripVertical, Plus, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Upload, FileText, Link, Trash2, GripVertical, Plus, ArrowRight, Sparkles, Loader2, Mic, Square, Pause, Play, Wand2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { loadLLMSettings } from "@/components/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useSpeechTranscription } from "@/hooks/use-speech-transcription";
 import type { Question, GenerateQuestionsResponse } from "@shared/schema";
 
 interface LoadScriptStepProps {
@@ -18,6 +19,37 @@ interface LoadScriptStepProps {
 }
 
 type SourceType = "upload" | "paste" | "googleDrive" | "askAI" | null;
+
+function RecordingWaveform({ isActive }: { isActive: boolean }) {
+  const [heights, setHeights] = useState([4, 4, 4, 4, 4]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setHeights([4, 4, 4, 4, 4]);
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      setHeights(prev => prev.map(() => Math.random() * 16 + 8));
+    }, 150);
+    
+    return () => clearInterval(interval);
+  }, [isActive]);
+
+  return (
+    <div className="flex items-center gap-1 h-6">
+      {heights.map((height, i) => (
+        <div
+          key={i}
+          className={cn(
+            "w-1 bg-destructive rounded-full transition-all duration-150",
+          )}
+          style={{ height: isActive ? `${height}px` : "4px" }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function generateQuestionId(): string {
   return Math.random().toString(36).substring(2, 11);
@@ -66,7 +98,89 @@ export function LoadScriptStep({ onQuestionsExtracted, initialQuestions, initial
   const [editText, setEditText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [cleanLoading, setCleanLoading] = useState(false);
   const { toast } = useToast();
+
+  const {
+    isRecording,
+    isPaused,
+    transcript,
+    interimTranscript,
+    fullTranscript,
+    error: speechError,
+    isSupported: isSpeechSupported,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    resetTranscript,
+    setInitialTranscript,
+  } = useSpeechTranscription({
+    onTranscriptChange: (text) => {
+      setAiDescription(text);
+    },
+  });
+
+  const handleStartRecording = useCallback(() => {
+    if (aiDescription) {
+      setInitialTranscript(aiDescription + " ");
+      startRecording(true);
+    } else {
+      startRecording(false);
+    }
+  }, [aiDescription, startRecording, setInitialTranscript]);
+
+  const handleStopRecording = useCallback(() => {
+    stopRecording();
+  }, [stopRecording]);
+
+  const handlePauseRecording = useCallback(() => {
+    pauseRecording();
+  }, [pauseRecording]);
+
+  const handleResumeRecording = useCallback(() => {
+    resumeRecording();
+  }, [resumeRecording]);
+
+  const handleCleanText = useCallback(async () => {
+    if (!aiDescription.trim()) {
+      toast({
+        title: "No text to clean",
+        description: "Record or type a description first.",
+        variant: "default",
+      });
+      return;
+    }
+
+    setCleanLoading(true);
+
+    try {
+      const llmSettings = loadLLMSettings();
+      
+      const response = await apiRequest("POST", "/api/cleanText", {
+        text: aiDescription,
+        llmSettings,
+      });
+      
+      const result = await response.json();
+      if (result.cleanedText) {
+        setAiDescription(result.cleanedText);
+        toast({
+          title: "Text cleaned",
+          description: "Grammar, spelling, and sentence flow have been improved.",
+        });
+      }
+    } catch (error) {
+      console.error("Clean text error:", error);
+      toast({
+        title: "Could not clean text",
+        description: "Try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setCleanLoading(false);
+    }
+  }, [aiDescription, toast]);
 
   const generateQuestionsMutation = useMutation({
     mutationFn: async (description: string) => {
@@ -308,10 +422,103 @@ export function LoadScriptStep({ onQuestionsExtracted, initialQuestions, initial
                 Describe Your Application
               </CardTitle>
               <CardDescription>
-                Describe the application you want to build. The AI will generate tailored discovery questions to help gather requirements.
+                Describe the application you want to build using voice or text. The AI will generate tailored discovery questions to help gather requirements.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                {isSpeechSupported && (
+                  <>
+                    {!isRecording && !isPaused && (
+                      <Button
+                        onClick={handleStartRecording}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        data-testid="button-start-recording"
+                      >
+                        <Mic className="w-4 h-4" />
+                        {aiDescription ? "Continue Recording" : "Record"}
+                      </Button>
+                    )}
+                    {isRecording && (
+                      <>
+                        <RecordingWaveform isActive={true} />
+                        <Button
+                          onClick={handlePauseRecording}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          data-testid="button-pause-recording"
+                        >
+                          <Pause className="w-4 h-4" />
+                          Pause
+                        </Button>
+                        <Button
+                          onClick={handleStopRecording}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-2"
+                          data-testid="button-stop-recording"
+                        >
+                          <Square className="w-4 h-4" />
+                          Stop
+                        </Button>
+                      </>
+                    )}
+                    {isPaused && (
+                      <>
+                        <span className="text-sm text-muted-foreground">Paused</span>
+                        <Button
+                          onClick={handleResumeRecording}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          data-testid="button-resume-recording"
+                        >
+                          <Play className="w-4 h-4" />
+                          Resume
+                        </Button>
+                        <Button
+                          onClick={handleStopRecording}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-2"
+                          data-testid="button-stop-recording-paused"
+                        >
+                          <Square className="w-4 h-4" />
+                          Stop
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+                {aiDescription.trim() && (
+                  <Button
+                    onClick={handleCleanText}
+                    variant="ghost"
+                    size="sm"
+                    disabled={cleanLoading || isRecording}
+                    className="gap-2 ml-auto"
+                    data-testid="button-clean-text"
+                  >
+                    {cleanLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-4 h-4" />
+                    )}
+                    Clean Text
+                  </Button>
+                )}
+              </div>
+              {speechError && (
+                <p className="text-sm text-destructive">{speechError}</p>
+              )}
+              {isRecording && interimTranscript && (
+                <p className="text-sm text-muted-foreground italic">
+                  {interimTranscript}
+                </p>
+              )}
               <Textarea
                 placeholder="Describe your application idea here...
 
@@ -319,11 +526,12 @@ Example: I want to build a task management app for small teams. It should allow 
                 value={aiDescription}
                 onChange={(e) => setAiDescription(e.target.value)}
                 className="min-h-[200px] text-sm"
+                disabled={isRecording}
                 data-testid="textarea-ai-description"
               />
               <Button
                 onClick={handleAskAI}
-                disabled={aiDescription.trim().length < 10 || generateQuestionsMutation.isPending}
+                disabled={aiDescription.trim().length < 10 || generateQuestionsMutation.isPending || isRecording}
                 className="w-full gap-2"
                 data-testid="button-generate-questions"
               >
