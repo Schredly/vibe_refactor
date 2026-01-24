@@ -182,7 +182,7 @@ export const defaultVibeCodingSettings: VibeCodingSettings = {
 export const projectSchema = z.object({
   id: z.string(),
   name: z.string(),
-  scriptSource: z.enum(["upload", "paste", "googleDrive"]).optional(),
+  scriptSource: z.enum(["upload", "paste", "googleDrive", "askAI"]).optional(),
   scriptContent: z.string().optional(),
   questions: z.array(questionSchema).optional(),
   agentContext: agentContextSchema.optional(),
@@ -297,6 +297,22 @@ export const generatePromptsRequestSchema = z.object({
 });
 
 export type GeneratePromptsRequest = z.infer<typeof generatePromptsRequestSchema>;
+
+// Generate questions from app description request schema
+export const generateQuestionsRequestSchema = z.object({
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  llmSettings: llmSettingsSchema.optional(),
+});
+
+export type GenerateQuestionsRequest = z.infer<typeof generateQuestionsRequestSchema>;
+
+export const generateQuestionsResponseSchema = z.object({
+  questions: z.array(z.object({
+    text: z.string(),
+  })),
+});
+
+export type GenerateQuestionsResponse = z.infer<typeof generateQuestionsResponseSchema>;
 
 // Detailed summarize response type
 export const detailedSummarizeResponseSchema = detailedSummarySchema;

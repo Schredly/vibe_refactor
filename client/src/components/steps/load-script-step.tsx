@@ -1,19 +1,23 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, Link, Trash2, GripVertical, Plus, ArrowRight } from "lucide-react";
+import { Upload, FileText, Link, Trash2, GripVertical, Plus, ArrowRight, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { Question } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { loadLLMSettings } from "@/components/settings-dialog";
+import { useToast } from "@/hooks/use-toast";
+import type { Question, GenerateQuestionsResponse } from "@shared/schema";
 
 interface LoadScriptStepProps {
-  onQuestionsExtracted: (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive") => void;
+  onQuestionsExtracted: (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive" | "askAI") => void;
   initialQuestions?: Question[];
   initialContent?: string;
 }
 
-type SourceType = "upload" | "paste" | "googleDrive" | null;
+type SourceType = "upload" | "paste" | "googleDrive" | "askAI" | null;
 
 function generateQuestionId(): string {
   return Math.random().toString(36).substring(2, 11);
@@ -54,6 +58,7 @@ export function LoadScriptStep({ onQuestionsExtracted, initialQuestions, initial
   const [sourceType, setSourceType] = useState<SourceType>(null);
   const [pasteContent, setPasteContent] = useState(initialContent || "");
   const [driveLink, setDriveLink] = useState("");
+  const [aiDescription, setAiDescription] = useState("");
   const [questions, setQuestions] = useState<Question[]>(initialQuestions || []);
   const [showPreview, setShowPreview] = useState(initialQuestions && initialQuestions.length > 0);
   const [newQuestionText, setNewQuestionText] = useState("");
@@ -61,6 +66,51 @@ export function LoadScriptStep({ onQuestionsExtracted, initialQuestions, initial
   const [editText, setEditText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const generateQuestionsMutation = useMutation({
+    mutationFn: async (description: string) => {
+      const llmSettings = loadLLMSettings();
+      const response = await apiRequest("POST", "/api/generateQuestions", {
+        description,
+        llmSettings,
+      });
+      return response.json() as Promise<GenerateQuestionsResponse>;
+    },
+    onSuccess: (data) => {
+      const generatedQuestions: Question[] = data.questions.map((q) => ({
+        id: generateQuestionId(),
+        text: q.text,
+        createdAt: new Date().toISOString(),
+      }));
+      setQuestions(generatedQuestions);
+      setPasteContent(data.questions.map((q) => q.text).join("\n"));
+      setShowPreview(true);
+      toast({
+        title: "Questions Generated",
+        description: `${generatedQuestions.length} questions generated from your description.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Generate Questions",
+        description: error.message || "Please check your LLM settings and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAskAI = useCallback(() => {
+    if (aiDescription.trim().length < 10) {
+      toast({
+        title: "Description Too Short",
+        description: "Please provide a more detailed description of your application idea.",
+        variant: "destructive",
+      });
+      return;
+    }
+    generateQuestionsMutation.mutate(aiDescription);
+  }, [aiDescription, generateQuestionsMutation, toast]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -152,7 +202,28 @@ export function LoadScriptStep({ onQuestionsExtracted, initialQuestions, initial
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card
+            className={cn(
+              "cursor-pointer hover-elevate transition-all",
+              sourceType === "askAI" && "ring-2 ring-primary"
+            )}
+            onClick={() => setSourceType("askAI")}
+            data-testid="card-ask-ai"
+          >
+            <CardHeader className="text-center pb-2">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <CardTitle className="text-lg">Ask AI</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-center">
+                Describe your app idea and let AI generate discovery questions
+              </CardDescription>
+            </CardContent>
+          </Card>
+
           <Card
             className={cn(
               "cursor-pointer hover-elevate transition-all",
@@ -228,6 +299,49 @@ export function LoadScriptStep({ onQuestionsExtracted, initialQuestions, initial
           className="hidden"
           data-testid="input-file-upload"
         />
+
+        {sourceType === "askAI" && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Describe Your Application
+              </CardTitle>
+              <CardDescription>
+                Describe the application you want to build. The AI will generate tailored discovery questions to help gather requirements.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                placeholder="Describe your application idea here...
+
+Example: I want to build a task management app for small teams. It should allow users to create projects, add tasks with due dates and priorities, assign tasks to team members, and track progress with a kanban board. I'd also like basic time tracking and the ability to generate weekly progress reports."
+                value={aiDescription}
+                onChange={(e) => setAiDescription(e.target.value)}
+                className="min-h-[200px] text-sm"
+                data-testid="textarea-ai-description"
+              />
+              <Button
+                onClick={handleAskAI}
+                disabled={aiDescription.trim().length < 10 || generateQuestionsMutation.isPending}
+                className="w-full gap-2"
+                data-testid="button-generate-questions"
+              >
+                {generateQuestionsMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating Questions...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Generate Questions
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {sourceType === "paste" && (
           <Card className="mt-6">

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, type LLMSettings, type InsertLlmLog } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, generateQuestionsRequestSchema, type LLMSettings, type InsertLlmLog } from "@shared/schema";
 import { z } from "zod";
 
 // Helper to log LLM calls to the database
@@ -765,6 +765,160 @@ Please analyze this and produce a comprehensive MVP plan with all sections fille
         return res.status(400).json({ error: "Invalid request data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to generate summary" });
+    }
+  });
+
+  // Generate questions from app description using AI
+  app.post("/api/generateQuestions", async (req, res) => {
+    try {
+      const validatedData = generateQuestionsRequestSchema.parse(req.body);
+      const { description, llmSettings } = validatedData;
+
+      const llmClient = getLLMClient(llmSettings);
+      
+      if (!llmClient) {
+        console.log("LLM not configured - API key required");
+        return res.status(400).json({ error: "Please configure an AI provider with a valid API key in Settings." });
+      }
+
+      const systemPrompt = `You are an expert product discovery consultant and MVP architect. Your task is to generate a comprehensive set of questions that will help thoroughly understand an application idea and gather all the information needed to build a successful MVP.
+
+Generate 12-18 thoughtful, probing questions that cover:
+1. Core Problem & Value Proposition (2-3 questions)
+2. Target Users & Use Cases (2-3 questions)
+3. Key Features & Functionality (3-4 questions)
+4. Data & Content Requirements (2-3 questions)
+5. Technical Constraints & Integrations (2-3 questions)
+6. Success Metrics & Launch Strategy (2-3 questions)
+
+Each question should:
+- Be open-ended to encourage detailed answers
+- Focus on extracting specific, actionable information
+- Help clarify ambiguities in the original description
+- Build toward a clear MVP scope
+
+OUTPUT FORMAT (JSON only, no other text):
+{
+  "questions": [
+    {"text": "Question 1 text here?"},
+    {"text": "Question 2 text here?"},
+    ...
+  ]
+}`;
+
+      const userPrompt = `Here is the application idea/description that needs to be explored:
+
+"${description}"
+
+Please generate a comprehensive set of discovery questions that will help fully understand this application idea and gather all the information needed to build a successful MVP. The questions should probe deeper into the concept, uncover hidden requirements, and ensure we understand the problem, users, features, and constraints.`;
+
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      
+      const startTime = Date.now();
+      
+      try {
+        console.log(`Calling ${llmClient.provider} (${llmClient.model}) for question generation...`);
+        
+        const timeoutPromise = new Promise<string | null>((_, reject) => 
+          setTimeout(() => reject(new Error("LLM timeout")), 60000)
+        );
+        
+        const llmPromise = llmClient.chat({
+          messages,
+          maxTokens: 4000,
+          jsonMode: true,
+        });
+        
+        const content = await Promise.race([llmPromise, timeoutPromise]);
+        const durationMs = Date.now() - startTime;
+        
+        if (!content) {
+          await logLlmCall({
+            stepName: "generateQuestions",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: messages,
+            outputContent: null,
+            durationMs,
+            status: "error",
+            errorMessage: "No content in response",
+          });
+          return res.status(500).json({ error: "No response from AI. Please try again." });
+        }
+
+        // Parse the JSON response
+        let parsed;
+        try {
+          // Extract JSON from potential markdown code blocks
+          let jsonStr = content;
+          const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[1].trim();
+          }
+          parsed = JSON.parse(jsonStr);
+        } catch (parseError) {
+          console.error("Failed to parse LLM response as JSON:", content);
+          await logLlmCall({
+            stepName: "generateQuestions",
+            provider: llmClient.provider,
+            model: llmClient.model,
+            inputMessages: messages,
+            outputContent: content,
+            durationMs,
+            status: "error",
+            errorMessage: "Failed to parse response as JSON",
+          });
+          return res.status(500).json({ error: "Failed to parse AI response. Please try again." });
+        }
+
+        // Log successful call
+        await logLlmCall({
+          stepName: "generateQuestions",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: messages,
+          outputContent: content,
+          durationMs,
+          status: "success",
+        });
+
+        // Validate and return questions
+        if (!parsed.questions || !Array.isArray(parsed.questions)) {
+          return res.status(500).json({ error: "Invalid response format from AI. Please try again." });
+        }
+
+        res.json({ questions: parsed.questions });
+        
+      } catch (aiError) {
+        const durationMs = Date.now() - startTime;
+        console.error("LLM API error:", aiError);
+        
+        await logLlmCall({
+          stepName: "generateQuestions",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: messages,
+          outputContent: null,
+          durationMs,
+          status: aiError instanceof Error && aiError.message === "LLM timeout" ? "timeout" : "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
+        const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+        if (errorMessage === "LLM timeout") {
+          return res.status(504).json({ error: "The AI request timed out. Please try again.", timeout: true });
+        }
+        return res.status(500).json({ error: `AI request failed: ${errorMessage}. Please try again.` });
+      }
+    } catch (error) {
+      console.error("Error generating questions:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to generate questions" });
     }
   });
 
