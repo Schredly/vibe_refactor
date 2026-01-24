@@ -22,31 +22,31 @@ const musicTracks: MusicTrack[] = [
     id: "ambient",
     name: "Ambient Focus",
     description: "Soft ambient tones",
-    url: "https://cdn.pixabay.com/audio/2024/11/01/audio_24b68fe8c6.mp3",
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
   },
   {
     id: "lofi",
     name: "Lo-Fi Chill",
     description: "Relaxing lo-fi beats",
-    url: "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3",
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
   },
   {
     id: "piano",
     name: "Gentle Piano",
     description: "Soft piano melodies",
-    url: "https://cdn.pixabay.com/audio/2022/08/02/audio_884fe92c21.mp3",
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
   },
   {
     id: "nature",
     name: "Nature Sounds",
-    description: "Forest and stream",
-    url: "https://cdn.pixabay.com/audio/2022/03/10/audio_4deeb28f8c.mp3",
+    description: "Calm instrumental",
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
   },
   {
     id: "meditation",
     name: "Meditation",
     description: "Deep relaxation tones",
-    url: "https://cdn.pixabay.com/audio/2024/09/10/audio_6e5d7d1912.mp3",
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
   },
 ];
 
