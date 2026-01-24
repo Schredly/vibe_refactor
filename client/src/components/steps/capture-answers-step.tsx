@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSpeechTranscription } from "@/hooks/use-speech-transcription";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BackgroundMusicPlayer } from "@/components/background-music-player";
 import type { Question, AgentContext, AgentAssistResponse, ResearchExamplesResponse } from "@shared/schema";
 
 interface CaptureAnswersStepProps {
@@ -388,6 +389,8 @@ export function CaptureAnswersStep({ questions, projectName, agentContext, onUpd
           <span>N: Next</span>
         </div>
       </div>
+
+      <BackgroundMusicPlayer />
 
       {error && (
         <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
