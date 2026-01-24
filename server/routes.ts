@@ -1553,23 +1553,21 @@ IMPORTANT RULES:
         }
       }
       
-      // Fall back to default OpenAI client
-      const { client: openai, model } = getOpenAIClient();
-      
-      if (!openai) {
+      // Fall back to default Replit OpenAI integration
+      if (!defaultOpenai) {
         console.log("LLM not configured, returning original text");
         return res.json({ cleanedText: text });
       }
 
       try {
-        console.log("Calling OpenAI to clean text...");
+        console.log("Calling Replit OpenAI integration to clean text...");
         
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error("OpenAI timeout")), 15000)
         );
         
-        const openaiPromise = openai.chat.completions.create({
-          model,
+        const openaiPromise = defaultOpenai.chat.completions.create({
+          model: "gpt-4o-mini",
           messages: cleanMessages,
           max_completion_tokens: 1000,
         });
@@ -1582,7 +1580,7 @@ IMPORTANT RULES:
         await logLlmCall({
           stepName: "cleanText",
           provider: "openai",
-          model,
+          model: "gpt-4o-mini",
           inputMessages: cleanMessages,
           outputContent: cleanedText || null,
           durationMs,
@@ -1602,7 +1600,7 @@ IMPORTANT RULES:
         await logLlmCall({
           stepName: "cleanText",
           provider: "openai",
-          model,
+          model: "gpt-4o-mini",
           inputMessages: cleanMessages,
           outputContent: null,
           durationMs,
