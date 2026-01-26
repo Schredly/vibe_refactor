@@ -9,11 +9,12 @@ import { LoadScriptStep } from "@/components/steps/load-script-step";
 import { CaptureAnswersStep } from "@/components/steps/capture-answers-step";
 import { ReviewSummarizeStep } from "@/components/steps/review-summarize-step";
 import { GenerateBuildPackStep } from "@/components/steps/generate-build-pack-step";
+import { StatementOfWorkStep } from "@/components/steps/statement-of-work-step";
 import { CreateAppStep } from "@/components/steps/create-app-step";
 import { useProjects } from "@/hooks/use-projects";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
-import type { Question, AgentContext, DetailedSummary } from "@shared/schema";
+import type { Question, AgentContext, DetailedSummary, StatementOfWork } from "@shared/schema";
 
 export default function Home() {
   const mainRef = useRef<HTMLElement>(null);
@@ -35,6 +36,7 @@ export default function Home() {
     setGeneratedPrompts,
     setScriptContent,
     setAgentContext,
+    setStatementOfWork,
   } = useProjects();
 
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function Home() {
     }
   }, []);
 
-  const handleQuestionsExtracted = useCallback(async (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive") => {
+  const handleQuestionsExtracted = useCallback(async (questions: Question[], content: string, source: "upload" | "paste" | "googleDrive" | "askAI") => {
     setQuestions(questions);
     setScriptContent(content, source);
     setCurrentStep(2);
@@ -163,6 +165,17 @@ export default function Home() {
           />
         );
       case 5:
+        return (
+          <StatementOfWorkStep
+            key={activeProject.id}
+            projectName={activeProject.name}
+            detailedSummary={activeProject.detailedSummary}
+            statementOfWork={activeProject.statementOfWork}
+            onSaveSOW={setStatementOfWork}
+            onContinue={() => goToStep(6)}
+          />
+        );
+      case 6:
         return (
           <CreateAppStep
             key={activeProject.id}

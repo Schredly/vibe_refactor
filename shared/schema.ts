@@ -178,7 +178,7 @@ export const defaultVibeCodingSettings: VibeCodingSettings = {
   selectedPlatformId: "replit",
 };
 
-// Project schema - main data model
+// Project schema - main data model (statementOfWork uses z.any() for circular reference)
 export const projectSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -189,11 +189,13 @@ export const projectSchema = z.object({
   summary: summarySchema.optional(), // Legacy - kept for backward compatibility
   detailedSummary: detailedSummarySchema.optional(), // New detailed summary
   generatedPrompts: z.array(promptBundleSchema).optional(),
+  statementOfWork: z.any().optional(), // Statement of Work - typed properly in StatementOfWork schema
   currentStep: z.number().default(1),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 
+// Note: Project type uses any for statementOfWork; use StatementOfWork type for type safety
 export type Project = z.infer<typeof projectSchema>;
 export type InsertProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
 
@@ -318,11 +320,311 @@ export type GenerateQuestionsResponse = z.infer<typeof generateQuestionsResponse
 export const detailedSummarizeResponseSchema = detailedSummarySchema;
 export type DetailedSummarizeResponse = DetailedSummary;
 
+// ===========================================
+// STATEMENT OF WORK SCHEMAS
+// ===========================================
+
+// Complexity scoring - calculated from detailed summary
+export const complexityTierSchema = z.enum(["simple", "medium", "complex", "enterprise"]);
+export type ComplexityTier = z.infer<typeof complexityTierSchema>;
+
+export const complexityScoreSchema = z.object({
+  tier: complexityTierSchema,
+  score: z.number().min(1).max(100), // Numeric score for granularity
+  breakdown: z.object({
+    screens: z.number(), // Number of screens
+    dataComplexity: z.number(), // 1-10 based on data sources
+    aiComplexity: z.number(), // 1-10 based on AI architecture
+    integrationComplexity: z.number(), // 1-10 based on integrations needed
+    complianceComplexity: z.number(), // 1-10 based on legal/compliance
+  }),
+  reasoning: z.string(), // Explanation of the score
+});
+
+export type ComplexityScore = z.infer<typeof complexityScoreSchema>;
+
+// Pricing tier configuration
+export const pricingTierSchema = z.object({
+  tier: complexityTierSchema,
+  label: z.string(),
+  basePrice: z.number().optional(), // Optional - user can configure
+  estimatedHours: z.object({
+    min: z.number(),
+    max: z.number(),
+  }),
+  description: z.string(),
+});
+
+export type PricingTier = z.infer<typeof pricingTierSchema>;
+
+// Default pricing tiers (configurable by user)
+export const defaultPricingTiers: PricingTier[] = [
+  {
+    tier: "simple",
+    label: "Simple MVP",
+    estimatedHours: { min: 20, max: 40 },
+    description: "Basic app with 2-3 screens, minimal integrations, standard CRUD operations",
+  },
+  {
+    tier: "medium",
+    label: "Medium MVP",
+    estimatedHours: { min: 40, max: 80 },
+    description: "4-6 screens, 1-2 integrations, basic AI features, moderate business logic",
+  },
+  {
+    tier: "complex",
+    label: "Complex MVP",
+    estimatedHours: { min: 80, max: 160 },
+    description: "7+ screens, multiple integrations, advanced AI/ML features, complex workflows",
+  },
+  {
+    tier: "enterprise",
+    label: "Enterprise MVP",
+    estimatedHours: { min: 160, max: 320 },
+    description: "Full-scale application, extensive integrations, compliance requirements, multi-tenant",
+  },
+];
+
+// Line item in an SOW
+export const sowLineItemSchema = z.object({
+  id: z.string(),
+  category: z.string(),
+  description: z.string(),
+  estimatedHours: z.number().optional(),
+  price: z.number().optional(),
+  included: z.boolean().default(true),
+  notes: z.string().optional(),
+});
+
+export type SOWLineItem = z.infer<typeof sowLineItemSchema>;
+
+// MVP SOW - generated from detailed summary
+export const mvpSOWSchema = z.object({
+  id: z.string(),
+  projectName: z.string(),
+  generatedAt: z.string(),
+  
+  // Complexity assessment
+  complexityScore: complexityScoreSchema,
+  
+  // Scope summary (derived from detailedSummary)
+  scopeSummary: z.object({
+    definition: z.string(),
+    includes: z.array(z.string()),
+    excludes: z.array(z.string()),
+  }),
+  
+  // Deliverables (derived from screens)
+  deliverables: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    acceptance: z.string(), // Acceptance criteria
+  })),
+  
+  // Line items for pricing
+  lineItems: z.array(sowLineItemSchema),
+  
+  // Totals
+  totalEstimatedHours: z.object({
+    min: z.number(),
+    max: z.number(),
+  }),
+  totalPrice: z.number().optional(),
+  
+  // Terms
+  assumptions: z.array(z.string()),
+  exclusions: z.array(z.string()),
+  
+  // Status
+  status: z.enum(["draft", "sent", "accepted", "declined"]).default("draft"),
+});
+
+export type MVPSOW = z.infer<typeof mvpSOWSchema>;
+
+// Extension SOW types - for post-MVP work
+export const extensionTypeSchema = z.enum([
+  "environment_setup",
+  "domain_dns",
+  "email_service",
+  "integration",
+  "feature_refinement",
+  "security_audit",
+  "performance_optimization",
+  "training_documentation",
+  "custom",
+]);
+
+export type ExtensionType = z.infer<typeof extensionTypeSchema>;
+
+// Extension SOW - for additional work beyond MVP
+export const extensionSOWSchema = z.object({
+  id: z.string(),
+  type: extensionTypeSchema,
+  title: z.string(),
+  description: z.string(),
+  lineItems: z.array(sowLineItemSchema),
+  estimatedHours: z.object({
+    min: z.number(),
+    max: z.number(),
+  }),
+  price: z.number().optional(),
+  priority: z.enum(["high", "medium", "low"]).default("medium"),
+  status: z.enum(["pending", "approved", "in_progress", "completed", "cancelled"]).default("pending"),
+  createdAt: z.string(),
+});
+
+export type ExtensionSOW = z.infer<typeof extensionSOWSchema>;
+
+// Extension templates - predefined extensions
+export const extensionTemplates: Omit<ExtensionSOW, "id" | "createdAt" | "status">[] = [
+  {
+    type: "environment_setup",
+    title: "Environment Setup",
+    description: "Configure development, staging, and production environments",
+    lineItems: [
+      { id: "env-1", category: "Infrastructure", description: "Development environment setup", estimatedHours: 4, included: true },
+      { id: "env-2", category: "Infrastructure", description: "Staging environment setup", estimatedHours: 4, included: true },
+      { id: "env-3", category: "Infrastructure", description: "Production environment setup", estimatedHours: 6, included: true },
+      { id: "env-4", category: "DevOps", description: "CI/CD pipeline configuration", estimatedHours: 8, included: true },
+    ],
+    estimatedHours: { min: 16, max: 24 },
+    priority: "high",
+  },
+  {
+    type: "domain_dns",
+    title: "Domain & DNS Configuration",
+    description: "Set up custom domain, SSL certificates, and DNS records",
+    lineItems: [
+      { id: "dns-1", category: "Infrastructure", description: "Domain registration assistance", estimatedHours: 1, included: true },
+      { id: "dns-2", category: "Infrastructure", description: "DNS configuration", estimatedHours: 2, included: true },
+      { id: "dns-3", category: "Security", description: "SSL certificate setup", estimatedHours: 2, included: true },
+      { id: "dns-4", category: "Infrastructure", description: "CDN configuration (optional)", estimatedHours: 4, included: false },
+    ],
+    estimatedHours: { min: 4, max: 8 },
+    priority: "medium",
+  },
+  {
+    type: "email_service",
+    title: "Email Service Integration",
+    description: "Set up transactional email, templates, and delivery",
+    lineItems: [
+      { id: "email-1", category: "Integration", description: "Email service provider setup", estimatedHours: 4, included: true },
+      { id: "email-2", category: "Development", description: "Email template design", estimatedHours: 6, included: true },
+      { id: "email-3", category: "Development", description: "Transactional email integration", estimatedHours: 8, included: true },
+      { id: "email-4", category: "Testing", description: "Email deliverability testing", estimatedHours: 2, included: true },
+    ],
+    estimatedHours: { min: 16, max: 24 },
+    priority: "medium",
+  },
+  {
+    type: "integration",
+    title: "Third-Party Integration",
+    description: "Integrate with external services and APIs",
+    lineItems: [
+      { id: "int-1", category: "Analysis", description: "API documentation review", estimatedHours: 2, included: true },
+      { id: "int-2", category: "Development", description: "Integration implementation", estimatedHours: 12, included: true },
+      { id: "int-3", category: "Testing", description: "Integration testing", estimatedHours: 4, included: true },
+      { id: "int-4", category: "Documentation", description: "Integration documentation", estimatedHours: 2, included: true },
+    ],
+    estimatedHours: { min: 16, max: 32 },
+    priority: "medium",
+  },
+  {
+    type: "feature_refinement",
+    title: "Feature Refinement",
+    description: "Fine-tune and polish existing features based on feedback",
+    lineItems: [
+      { id: "ref-1", category: "Analysis", description: "Feedback review and prioritization", estimatedHours: 2, included: true },
+      { id: "ref-2", category: "Development", description: "UI/UX improvements", estimatedHours: 8, included: true },
+      { id: "ref-3", category: "Development", description: "Functionality enhancements", estimatedHours: 8, included: true },
+      { id: "ref-4", category: "Testing", description: "Regression testing", estimatedHours: 4, included: true },
+    ],
+    estimatedHours: { min: 16, max: 32 },
+    priority: "high",
+  },
+];
+
+// MSA (Master Service Agreement) terms
+export const msaTermsSchema = z.object({
+  enabled: z.boolean().default(false),
+  
+  // Retainer structure
+  retainer: z.object({
+    monthlyHours: z.number().default(10),
+    hourlyRate: z.number().optional(),
+    rolloverHours: z.boolean().default(false),
+    maxRollover: z.number().optional(),
+  }).optional(),
+  
+  // Response times
+  sla: z.object({
+    criticalResponseHours: z.number().default(4),
+    highResponseHours: z.number().default(8),
+    normalResponseHours: z.number().default(24),
+  }).optional(),
+  
+  // Change request process
+  changeProcess: z.object({
+    requiresWrittenApproval: z.boolean().default(true),
+    minimumHoursForApproval: z.number().default(4),
+  }).optional(),
+  
+  // Term
+  termMonths: z.number().default(12),
+  autoRenew: z.boolean().default(true),
+  
+  notes: z.string().optional(),
+});
+
+export type MSATerms = z.infer<typeof msaTermsSchema>;
+
+// Complete Statement of Work for a project
+export const statementOfWorkSchema = z.object({
+  projectId: z.string(),
+  
+  // MVP SOW
+  mvpSOW: mvpSOWSchema.optional(),
+  
+  // Extension SOWs
+  extensions: z.array(extensionSOWSchema).default([]),
+  
+  // MSA option
+  msaTerms: msaTermsSchema.optional(),
+  
+  // Pricing configuration
+  pricingTiers: z.array(pricingTierSchema).default([]),
+  hourlyRate: z.number().optional(),
+  
+  // Metadata
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastGeneratedAt: z.string().optional(),
+});
+
+export type StatementOfWork = z.infer<typeof statementOfWorkSchema>;
+
+// Extend project schema with statementOfWork (defined after SOW schemas)
+export const projectWithSOWSchema = projectSchema.extend({
+  statementOfWork: statementOfWorkSchema.optional(),
+});
+
+export type ProjectWithSOW = z.infer<typeof projectWithSOWSchema>;
+
+// API request for generating SOW
+export const generateSOWRequestSchema = z.object({
+  projectName: z.string(),
+  detailedSummary: detailedSummarySchema,
+  llmSettings: llmSettingsSchema.optional(),
+});
+
+export type GenerateSOWRequest = z.infer<typeof generateSOWRequestSchema>;
+
 // Wizard steps
 export const WIZARD_STEPS = [
   { id: 1, name: "Load Script", description: "Upload or paste your question script" },
   { id: 2, name: "Capture Answers", description: "Record voice answers to each question" },
   { id: 3, name: "Review & Summarize", description: "Review and approve the MVP summary" },
   { id: 4, name: "Generate Build Pack", description: "Create prompts for building the MVP" },
-  { id: 5, name: "Create App", description: "Hand off to Replit for app generation" },
+  { id: 5, name: "Statement of Work", description: "Generate scope and pricing documents" },
+  { id: 6, name: "Create App", description: "Hand off to Replit for app generation" },
 ] as const;

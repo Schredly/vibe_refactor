@@ -1817,6 +1817,189 @@ Respond in JSON format:
     }
   });
 
+  // Generate Statement of Work endpoint
+  app.post("/api/generateSOW", async (req, res) => {
+    try {
+      const { projectName, detailedSummary, llmSettings } = req.body;
+      
+      if (!detailedSummary) {
+        return res.status(400).json({ error: "Detailed summary is required" });
+      }
+
+      const llmClient = getLLMClient(llmSettings);
+      
+      if (!llmClient) {
+        console.log("LLM not configured for SOW generation");
+        return res.status(400).json({ error: "Please configure an AI provider with a valid API key in Settings." });
+      }
+
+      const systemPrompt = `You are an expert project manager and business analyst. Analyze the provided MVP summary and generate a comprehensive Statement of Work (SOW) with accurate complexity scoring.
+
+Your response must be a valid JSON object with this EXACT structure:
+{
+  "id": "unique_id_string",
+  "projectName": "project name",
+  "generatedAt": "ISO timestamp",
+  "complexityScore": {
+    "tier": "simple" | "medium" | "complex" | "enterprise",
+    "score": 1-100,
+    "breakdown": {
+      "screens": number_of_screens,
+      "dataComplexity": 1-10,
+      "aiComplexity": 1-10,
+      "integrationComplexity": 1-10,
+      "complianceComplexity": 1-10
+    },
+    "reasoning": "Explanation of complexity assessment"
+  },
+  "scopeSummary": {
+    "definition": "One sentence definition",
+    "includes": ["included items"],
+    "excludes": ["excluded items"]
+  },
+  "deliverables": [
+    {
+      "name": "Deliverable name",
+      "description": "What will be delivered",
+      "acceptance": "Acceptance criteria"
+    }
+  ],
+  "lineItems": [
+    {
+      "id": "unique_id",
+      "category": "Category name",
+      "description": "Line item description",
+      "estimatedHours": number,
+      "included": true
+    }
+  ],
+  "totalEstimatedHours": {
+    "min": number,
+    "max": number
+  },
+  "assumptions": ["assumption 1", "assumption 2"],
+  "exclusions": ["exclusion 1", "exclusion 2"],
+  "status": "draft"
+}
+
+COMPLEXITY SCORING GUIDE:
+- simple (1-25): 2-3 screens, basic CRUD, no AI, minimal integrations
+- medium (26-50): 4-6 screens, moderate logic, basic AI, 1-2 integrations
+- complex (51-75): 7-10 screens, complex workflows, advanced AI, multiple integrations
+- enterprise (76-100): 10+ screens, enterprise features, compliance requirements, many integrations
+
+LINE ITEMS should cover:
+- Project setup and architecture
+- Database design and implementation
+- User authentication and authorization
+- Core feature development (one per major feature)
+- UI/UX implementation
+- Testing and QA
+- Documentation
+
+Be thorough and realistic with hour estimates.`;
+
+      const userPrompt = `Generate a Statement of Work for "${projectName}" based on this MVP summary:
+
+**Definition:** ${detailedSummary.oneSentenceDefinition}
+
+**Scope - Includes:**
+${detailedSummary.mvpScope.includes.map((i: string) => `- ${i}`).join('\n')}
+
+**Scope - Excludes:**
+${detailedSummary.mvpScope.excludes.map((e: string) => `- ${e}`).join('\n')}
+
+**Screens (${detailedSummary.screens.length} total):**
+${detailedSummary.screens.map((s: any) => `- ${s.name}: ${s.purpose}`).join('\n')}
+
+**User Flow:**
+${detailedSummary.userFlow.map((step: string, i: number) => `${i + 1}. ${step}`).join('\n')}
+
+**AI Architecture:**
+${detailedSummary.aiArchitecture ? detailedSummary.aiArchitecture.roles.map((r: any) => `- ${r.name}: ${r.responsibilities.join(', ')}`).join('\n') : 'None specified'}
+
+**Data Sources:**
+${detailedSummary.dataSources.mvpSources.map((s: string) => `- ${s}`).join('\n')}
+
+**Legal/Compliance:**
+${detailedSummary.legalGuardrails.map((g: string) => `- ${g}`).join('\n')}
+
+Analyze this and generate a comprehensive SOW with accurate complexity scoring and realistic hour estimates.`;
+
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt },
+      ];
+      
+      const startTime = Date.now();
+      
+      try {
+        console.log(`Calling ${llmClient.provider} (${llmClient.model}) for SOW generation...`);
+        
+        const content = await llmClient.chat({
+          messages,
+          maxTokens: 8000,
+          jsonMode: llmClient.provider === "openai",
+        });
+        
+        const durationMs = Date.now() - startTime;
+        
+        await logLlmCall({
+          stepName: "generateSOW",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: messages,
+          outputContent: content,
+          durationMs,
+          status: content ? "success" : "error",
+          errorMessage: content ? undefined : "Empty response",
+        });
+
+        if (!content) {
+          throw new Error("Empty response from LLM");
+        }
+
+        // Parse JSON response
+        let jsonContent = content.trim();
+        const jsonMatch = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[1].trim();
+        }
+        
+        const jsonStartIndex = jsonContent.indexOf('{');
+        if (jsonStartIndex > 0) {
+          jsonContent = jsonContent.substring(jsonStartIndex);
+        }
+
+        const parsed = JSON.parse(jsonContent);
+        
+        return res.json(parsed);
+      } catch (aiError) {
+        const durationMs = Date.now() - startTime;
+        console.error("LLM API error for SOW generation:", aiError);
+        
+        await logLlmCall({
+          stepName: "generateSOW",
+          provider: llmClient.provider,
+          model: llmClient.model,
+          inputMessages: messages,
+          outputContent: null,
+          durationMs,
+          status: "error",
+          errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+        
+        throw aiError;
+      }
+    } catch (error) {
+      console.error("Error generating SOW:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      }
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate Statement of Work" });
+    }
+  });
+
   // LLM Logs endpoints
   app.get("/api/logs", async (req, res) => {
     try {

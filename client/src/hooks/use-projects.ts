@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Project, InsertProject, Question, Summary, DetailedSummary, PromptBundle, AgentContext } from "@shared/schema";
+import type { Project, InsertProject, Question, Summary, DetailedSummary, PromptBundle, AgentContext, StatementOfWork } from "@shared/schema";
 
 const STORAGE_KEY = "vibe-refactor-projects";
 
@@ -48,6 +48,7 @@ export function useProjects() {
       detailedSummary: data.detailedSummary,
       generatedPrompts: data.generatedPrompts,
       agentContext: data.agentContext,
+      statementOfWork: data.statementOfWork,
       currentStep: data.currentStep || 1,
       createdAt: now,
       updatedAt: now,
@@ -141,6 +142,12 @@ export function useProjects() {
     }
   }, [activeProjectId, updateProject]);
 
+  const setStatementOfWork = useCallback((sow: StatementOfWork): void => {
+    if (activeProjectId) {
+      updateProject(activeProjectId, { statementOfWork: sow });
+    }
+  }, [activeProjectId, updateProject]);
+
   return {
     projects,
     activeProject,
@@ -159,5 +166,6 @@ export function useProjects() {
     setGeneratedPrompts,
     setScriptContent,
     setAgentContext,
+    setStatementOfWork,
   };
 }
