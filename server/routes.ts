@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, generateQuestionsRequestSchema, type LLMSettings, type InsertLlmLog } from "@shared/schema";
+import { summarizeRequestSchema, generatePromptsRequestSchema, generateContextRequestSchema, agentAssistRequestSchema, cleanTextRequestSchema, researchExamplesRequestSchema, generateQuestionsRequestSchema, generateSOWRequestSchema, mvpSOWSchema, type LLMSettings, type InsertLlmLog } from "@shared/schema";
 import { z } from "zod";
 
 // Helper to log LLM calls to the database
@@ -1820,11 +1820,16 @@ Respond in JSON format:
   // Generate Statement of Work endpoint
   app.post("/api/generateSOW", async (req, res) => {
     try {
-      const { projectName, detailedSummary, llmSettings } = req.body;
-      
-      if (!detailedSummary) {
-        return res.status(400).json({ error: "Detailed summary is required" });
+      // Validate request body
+      const validatedRequest = generateSOWRequestSchema.safeParse(req.body);
+      if (!validatedRequest.success) {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: validatedRequest.error.errors 
+        });
       }
+      
+      const { projectName, detailedSummary, llmSettings } = validatedRequest.data;
 
       const llmClient = getLLMClient(llmSettings);
       
@@ -1973,7 +1978,28 @@ Analyze this and generate a comprehensive SOW with accurate complexity scoring a
 
         const parsed = JSON.parse(jsonContent);
         
-        return res.json(parsed);
+        // Validate response against mvpSOWSchema
+        const validatedSOW = mvpSOWSchema.safeParse(parsed);
+        if (!validatedSOW.success) {
+          console.warn("LLM response doesn't match schema, returning raw response with defaults applied");
+          // Apply defaults for missing fields
+          const sowWithDefaults = {
+            id: parsed.id || `sow_${Date.now()}`,
+            projectName: parsed.projectName || projectName,
+            generatedAt: parsed.generatedAt || new Date().toISOString(),
+            complexityScore: parsed.complexityScore || { tier: "medium", score: 50, breakdown: { screens: 5, dataComplexity: 5, aiComplexity: 5, integrationComplexity: 5, complianceComplexity: 5 }, reasoning: "Default assessment" },
+            scopeSummary: parsed.scopeSummary || { definition: "MVP Application", includes: [], excludes: [] },
+            deliverables: parsed.deliverables || [],
+            lineItems: parsed.lineItems || [],
+            totalEstimatedHours: parsed.totalEstimatedHours || { min: 40, max: 80 },
+            assumptions: parsed.assumptions || [],
+            exclusions: parsed.exclusions || [],
+            status: parsed.status || "draft",
+          };
+          return res.json(sowWithDefaults);
+        }
+        
+        return res.json(validatedSOW.data);
       } catch (aiError) {
         const durationMs = Date.now() - startTime;
         console.error("LLM API error for SOW generation:", aiError);

@@ -130,7 +130,7 @@ export function useProjects() {
     }
   }, [activeProjectId, updateProject]);
 
-  const setScriptContent = useCallback((content: string, source: "upload" | "paste" | "googleDrive"): void => {
+  const setScriptContent = useCallback((content: string, source: "upload" | "paste" | "googleDrive" | "askAI"): void => {
     if (activeProjectId) {
       updateProject(activeProjectId, { scriptContent: content, scriptSource: source });
     }
