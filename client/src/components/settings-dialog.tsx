@@ -52,6 +52,8 @@ export function loadFeatureSettings(): FeatureSettings {
 
 export function saveFeatureSettings(settings: FeatureSettings): void {
   localStorage.setItem(FEATURE_STORAGE_KEY, JSON.stringify(settings));
+  // Dispatch custom event to notify listeners of the change
+  window.dispatchEvent(new CustomEvent('featureSettingsChanged', { detail: settings }));
 }
 
 export function isSOWEnabled(): boolean {

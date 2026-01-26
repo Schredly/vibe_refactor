@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 import { WIZARD_STEPS_WITH_SOW, WIZARD_STEPS_WITHOUT_SOW } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -9,7 +10,18 @@ interface WizardProgressProps {
 }
 
 export function WizardProgress({ currentStep, onStepClick }: WizardProgressProps) {
-  const steps = isSOWEnabled() ? WIZARD_STEPS_WITH_SOW : WIZARD_STEPS_WITHOUT_SOW;
+  const [sowEnabled, setSOWEnabled] = useState(isSOWEnabled());
+  
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setSOWEnabled(isSOWEnabled());
+    };
+    
+    window.addEventListener('featureSettingsChanged', handleSettingsChange);
+    return () => window.removeEventListener('featureSettingsChanged', handleSettingsChange);
+  }, []);
+  
+  const steps = sowEnabled ? WIZARD_STEPS_WITH_SOW : WIZARD_STEPS_WITHOUT_SOW;
   
   return (
     <div className="w-full py-6 px-8" data-testid="wizard-progress">

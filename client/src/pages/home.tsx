@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { WizardProgress } from "@/components/wizard-progress";
@@ -18,6 +18,7 @@ import type { Question, AgentContext, DetailedSummary, StatementOfWork } from "@
 
 export default function Home() {
   const mainRef = useRef<HTMLElement>(null);
+  const [sowEnabled, setSOWEnabled] = useState(isSOWEnabled());
   
   const {
     projects,
@@ -44,6 +45,15 @@ export default function Home() {
       createProject({ name: "My First Project" });
     }
   }, [isLoading, projects.length, createProject]);
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setSOWEnabled(isSOWEnabled());
+    };
+    
+    window.addEventListener('featureSettingsChanged', handleSettingsChange);
+    return () => window.removeEventListener('featureSettingsChanged', handleSettingsChange);
+  }, []);
 
   const currentStep = activeProject?.currentStep || 1;
 
@@ -119,8 +129,6 @@ export default function Home() {
         </div>
       );
     }
-
-    const sowEnabled = isSOWEnabled();
 
     switch (currentStep) {
       case 1:
