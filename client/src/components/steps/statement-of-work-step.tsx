@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { jsPDF } from "jspdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -232,25 +233,254 @@ export function StatementOfWorkStep({
   const exportToPDF = useCallback(async () => {
     toast({
       title: "Export Started",
-      description: "Preparing your Statement of Work for download...",
+      description: "Generating PDF...",
     });
 
-    const content = generateExportContent();
-    const blob = new Blob([content], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${projectName.replace(/\s+/g, "_")}_SOW.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+      let y = margin;
 
-    toast({
-      title: "Export Complete",
-      description: "Your Statement of Work has been downloaded.",
-    });
-  }, [projectName, mvpSOW, extensions, msaTerms, hourlyRate]);
+      const addText = (text: string, size: number = 10, style: "normal" | "bold" = "normal", color: [number, number, number] = [0, 0, 0]) => {
+        doc.setFontSize(size);
+        doc.setFont("helvetica", style);
+        doc.setTextColor(color[0], color[1], color[2]);
+        const lines = doc.splitTextToSize(text, contentWidth);
+        const lineHeight = size * 0.4;
+        
+        lines.forEach((line: string) => {
+          if (y + lineHeight > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(line, margin, y);
+          y += lineHeight;
+        });
+      };
+
+      const addSpacing = (space: number = 5) => {
+        y += space;
+        if (y > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+
+      const addHorizontalLine = () => {
+        if (y + 5 > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+      };
+
+      const addBullet = (text: string, indent: number = 0) => {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
+        const bulletX = margin + indent;
+        const textX = bulletX + 5;
+        const lines = doc.splitTextToSize(text, contentWidth - indent - 5);
+        
+        lines.forEach((line: string, i: number) => {
+          if (y + 4 > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          if (i === 0) {
+            doc.text("\u2022", bulletX, y);
+          }
+          doc.text(line, textX, y);
+          y += 4;
+        });
+      };
+
+      // Header
+      doc.setFillColor(124, 58, 237);
+      doc.rect(0, 0, pageWidth, 40, "F");
+      
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text("Statement of Work", margin, 25);
+      
+      y = 50;
+      
+      // Project name and date
+      addText(projectName, 18, "bold", [60, 60, 60]);
+      addSpacing(3);
+      addText(`Generated: ${new Date().toLocaleDateString()}`, 10, "normal", [120, 120, 120]);
+      addSpacing(10);
+      addHorizontalLine();
+
+      if (mvpSOW) {
+        // Complexity Score Section
+        addText("PROJECT COMPLEXITY", 12, "bold", [124, 58, 237]);
+        addSpacing(5);
+        
+        const tierLabel = COMPLEXITY_LABELS[mvpSOW.complexityScore.tier];
+        addText(`Tier: ${tierLabel}  |  Score: ${mvpSOW.complexityScore.score}/100`, 11, "bold");
+        addSpacing(3);
+        addText(mvpSOW.complexityScore.reasoning, 10, "normal", [80, 80, 80]);
+        addSpacing(10);
+        
+        // Scope Summary
+        addText("MVP SCOPE", 12, "bold", [124, 58, 237]);
+        addSpacing(5);
+        addText(mvpSOW.scopeSummary.definition, 11, "bold");
+        addSpacing(8);
+
+        addText("Included:", 10, "bold");
+        addSpacing(2);
+        mvpSOW.scopeSummary.includes.forEach((item) => addBullet(item));
+        addSpacing(5);
+
+        addText("Excluded:", 10, "bold");
+        addSpacing(2);
+        mvpSOW.scopeSummary.excludes.forEach((item) => addBullet(item));
+        addSpacing(10);
+
+        // Deliverables
+        addText("DELIVERABLES", 12, "bold", [124, 58, 237]);
+        addSpacing(5);
+        
+        mvpSOW.deliverables.forEach((d, i) => {
+          addText(`${i + 1}. ${d.name}`, 11, "bold");
+          addSpacing(2);
+          addText(d.description, 10, "normal", [60, 60, 60]);
+          addSpacing(2);
+          addText(`Acceptance: ${d.acceptance}`, 9, "normal", [100, 100, 100]);
+          addSpacing(6);
+        });
+
+        addSpacing(5);
+
+        // Pricing Box
+        doc.setFillColor(249, 250, 251);
+        const boxY = y;
+        const boxHeight = 35;
+        if (boxY + boxHeight > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.roundedRect(margin, y, contentWidth, boxHeight, 3, 3, "F");
+        doc.setDrawColor(124, 58, 237);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(margin, y, contentWidth, boxHeight, 3, 3, "S");
+        
+        y += 10;
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(124, 58, 237);
+        doc.text("ESTIMATED INVESTMENT", margin + 10, y);
+        
+        y += 8;
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Hours: ${mvpSOW.totalEstimatedHours.min} - ${mvpSOW.totalEstimatedHours.max}`, margin + 10, y);
+        
+        if (hourlyRate) {
+          const total = calculateTotal(mvpSOW.totalEstimatedHours, hourlyRate);
+          y += 6;
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          doc.text(`$${total.min.toLocaleString()} - $${total.max.toLocaleString()}`, margin + 10, y);
+        }
+        
+        y += 15;
+        addSpacing(10);
+
+        // Assumptions
+        addText("ASSUMPTIONS", 12, "bold", [124, 58, 237]);
+        addSpacing(5);
+        mvpSOW.assumptions.forEach((a) => addBullet(a));
+        addSpacing(8);
+
+        // Exclusions
+        addText("EXCLUSIONS", 12, "bold", [124, 58, 237]);
+        addSpacing(5);
+        mvpSOW.exclusions.forEach((e) => addBullet(e));
+      }
+
+      // Extensions
+      if (extensions.length > 0) {
+        addSpacing(10);
+        addHorizontalLine();
+        addText("EXTENSION SOWS", 14, "bold", [124, 58, 237]);
+        addSpacing(8);
+
+        extensions.forEach((ext) => {
+          addText(ext.title, 11, "bold");
+          addSpacing(2);
+          addText(ext.description, 10, "normal", [60, 60, 60]);
+          addSpacing(3);
+          let priceText = `Hours: ${ext.estimatedHours.min} - ${ext.estimatedHours.max}`;
+          if (hourlyRate) {
+            const total = calculateTotal(ext.estimatedHours, hourlyRate);
+            priceText += `  |  $${total.min.toLocaleString()} - $${total.max.toLocaleString()}`;
+          }
+          addText(priceText, 10, "bold", [100, 100, 100]);
+          addSpacing(8);
+        });
+      }
+
+      // MSA Terms
+      if (msaTerms?.enabled) {
+        addSpacing(10);
+        addHorizontalLine();
+        addText("MASTER SERVICE AGREEMENT", 14, "bold", [124, 58, 237]);
+        addSpacing(8);
+
+        addBullet(`Term: ${msaTerms.termMonths} months`);
+        addBullet(`Auto-Renew: ${msaTerms.autoRenew ? "Yes" : "No"}`);
+        
+        if (msaTerms.retainer) {
+          addSpacing(5);
+          addText("Retainer:", 10, "bold");
+          addBullet(`Monthly Hours: ${msaTerms.retainer.monthlyHours}`);
+          addBullet(`Hourly Rate: $${msaTerms.retainer.hourlyRate}`);
+          addBullet(`Rollover: ${msaTerms.retainer.rolloverHours ? "Yes" : "No"}`);
+        }
+
+        if (msaTerms.sla) {
+          addSpacing(5);
+          addText("SLA Response Times:", 10, "bold");
+          addBullet(`Critical: ${msaTerms.sla.criticalResponseHours} hours`);
+          addBullet(`High: ${msaTerms.sla.highResponseHours} hours`);
+          addBullet(`Normal: ${msaTerms.sla.normalResponseHours} hours`);
+        }
+      }
+
+      // Footer on last page
+      const footerY = pageHeight - 15;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150, 150, 150);
+      doc.text("Generated by Vibe Refactor MVP Wizard", margin, footerY);
+      doc.text(`Page ${doc.getNumberOfPages()}`, pageWidth - margin - 20, footerY);
+
+      // Save the PDF
+      doc.save(`${projectName.replace(/\s+/g, "_")}_SOW.pdf`);
+
+      toast({
+        title: "Export Complete",
+        description: "Your Statement of Work PDF has been downloaded.",
+      });
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [projectName, mvpSOW, extensions, msaTerms, hourlyRate, calculateTotal, toast]);
 
   const generateExportContent = useCallback(() => {
     let content = `# Statement of Work\n## ${projectName}\n\nGenerated: ${new Date().toLocaleDateString()}\n\n`;
