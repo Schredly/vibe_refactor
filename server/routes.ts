@@ -75,8 +75,24 @@ if (hasOpenAIConfig) {
 
 // Create unified LLM client based on settings
 function getLLMClient(settings?: LLMSettings): LLMClient | null {
-  // If no settings provided, return null - users must provide their own API key
+  // If no custom settings/API key provided, fall back to Replit OpenAI integration
   if (!settings || !settings.apiKey) {
+    if (defaultOpenai) {
+      const model = "gpt-4.1";
+      return {
+        provider: "openai",
+        model,
+        chat: async (options: ChatCompletionOptions) => {
+          const response = await defaultOpenai!.chat.completions.create({
+            model,
+            messages: options.messages,
+            max_completion_tokens: options.maxTokens,
+            response_format: options.jsonMode ? { type: "json_object" } : undefined,
+          });
+          return response.choices[0]?.message?.content || null;
+        }
+      };
+    }
     return null;
   }
 
