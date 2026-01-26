@@ -171,6 +171,48 @@ export const defaultVibeCodingPlatforms: VibeCodingPlatform[] = [
     isDefault: true,
     isBuiltIn: true,
   },
+  {
+    id: "cursor",
+    name: "Cursor",
+    description: "AI-first code editor with built-in coding assistant",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "bolt",
+    name: "Bolt.new",
+    description: "StackBlitz's AI-powered full-stack web development",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "lovable",
+    name: "Lovable",
+    description: "AI software engineer for rapid app development",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "v0",
+    name: "v0 by Vercel",
+    description: "Generative UI development with React components",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "windsurf",
+    name: "Windsurf",
+    description: "Codeium's agentic IDE for collaborative AI coding",
+    isDefault: false,
+    isBuiltIn: true,
+  },
+  {
+    id: "claude-code",
+    name: "Claude Code",
+    description: "Anthropic's agentic coding tool in terminal",
+    isDefault: false,
+    isBuiltIn: true,
+  },
 ];
 
 export const defaultVibeCodingSettings: VibeCodingSettings = {
