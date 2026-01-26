@@ -746,8 +746,8 @@ export const generateSOWRequestSchema = z.object({
 
 export type GenerateSOWRequest = z.infer<typeof generateSOWRequestSchema>;
 
-// Wizard steps
-export const WIZARD_STEPS = [
+// Wizard steps - with SOW
+export const WIZARD_STEPS_WITH_SOW = [
   { id: 1, name: "Load Script", description: "Upload or paste your question script" },
   { id: 2, name: "Capture Answers", description: "Record voice answers to each question" },
   { id: 3, name: "Review & Summarize", description: "Review and approve the MVP summary" },
@@ -755,3 +755,15 @@ export const WIZARD_STEPS = [
   { id: 5, name: "Statement of Work", description: "Generate scope and pricing documents" },
   { id: 6, name: "Create App", description: "Hand off to Replit for app generation" },
 ] as const;
+
+// Wizard steps - without SOW
+export const WIZARD_STEPS_WITHOUT_SOW = [
+  { id: 1, name: "Load Script", description: "Upload or paste your question script" },
+  { id: 2, name: "Capture Answers", description: "Record voice answers to each question" },
+  { id: 3, name: "Review & Summarize", description: "Review and approve the MVP summary" },
+  { id: 4, name: "Generate Build Pack", description: "Create prompts for building the MVP" },
+  { id: 5, name: "Create App", description: "Hand off to Replit for app generation" },
+] as const;
+
+// Default export for backward compatibility
+export const WIZARD_STEPS = WIZARD_STEPS_WITH_SOW;

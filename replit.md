@@ -18,6 +18,10 @@ Users can configure the AI provider via the Settings dialog (accessible from the
 - **Custom API Key**: Optional - uses Replit integration by default
 - **Custom Base URL**: For custom OpenAI-compatible endpoints
 
+## Feature Settings
+Users can enable/disable optional features via the Settings dialog > Features tab:
+- **Statement of Work**: Toggle to include/exclude the SOW step in the wizard. When disabled, the wizard goes directly from Build Pack to Create App (5 steps instead of 6).
+
 Settings are stored in localStorage and sent with each API request.
 
 ## Project Structure

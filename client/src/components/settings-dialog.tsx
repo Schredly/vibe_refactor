@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Key, Globe, Cpu, Plus, Trash2, Code2, Star } from "lucide-react";
+import { Settings, Key, Globe, Cpu, Plus, Trash2, Code2, Star, ToggleRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,35 @@ import { defaultLLMSettings, defaultVibeCodingSettings, defaultVibeCodingPlatfor
 
 const LLM_STORAGE_KEY = "vibe-refactor-llm-settings";
 const PLATFORM_STORAGE_KEY = "vibe-refactor-platform-settings";
+const FEATURE_STORAGE_KEY = "vibe-refactor-feature-settings";
+
+export interface FeatureSettings {
+  showStatementOfWork: boolean;
+}
+
+export const defaultFeatureSettings: FeatureSettings = {
+  showStatementOfWork: true,
+};
+
+export function loadFeatureSettings(): FeatureSettings {
+  try {
+    const stored = localStorage.getItem(FEATURE_STORAGE_KEY);
+    if (stored) {
+      return { ...defaultFeatureSettings, ...JSON.parse(stored) };
+    }
+  } catch {
+    // ignore
+  }
+  return defaultFeatureSettings;
+}
+
+export function saveFeatureSettings(settings: FeatureSettings): void {
+  localStorage.setItem(FEATURE_STORAGE_KEY, JSON.stringify(settings));
+}
+
+export function isSOWEnabled(): boolean {
+  return loadFeatureSettings().showStatementOfWork;
+}
 
 const providerModels: Record<LLMProvider, string[]> = {
   openai: ["gpt-5.2", "gpt-5.1", "gpt-5.0", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
@@ -90,6 +119,7 @@ export function SettingsDialog() {
   const [open, setOpen] = useState(false);
   const [llmSettings, setLlmSettings] = useState<LLMSettings>(defaultLLMSettings);
   const [platformSettings, setPlatformSettings] = useState<VibeCodingSettings>(defaultVibeCodingSettings);
+  const [featureSettings, setFeatureSettings] = useState<FeatureSettings>(defaultFeatureSettings);
   const [newPlatformName, setNewPlatformName] = useState("");
   const [newPlatformDescription, setNewPlatformDescription] = useState("");
   const { toast } = useToast();
@@ -97,6 +127,7 @@ export function SettingsDialog() {
   useEffect(() => {
     setLlmSettings(loadLLMSettings());
     setPlatformSettings(loadVibeCodingSettings());
+    setFeatureSettings(loadFeatureSettings());
   }, []);
 
   const handleProviderChange = (provider: LLMProvider) => {
@@ -175,6 +206,7 @@ export function SettingsDialog() {
   const handleSave = () => {
     saveLLMSettings(llmSettings);
     saveVibeCodingSettings(platformSettings);
+    saveFeatureSettings(featureSettings);
     toast({
       title: "Settings saved",
       description: "Your settings have been updated.",
@@ -203,7 +235,7 @@ export function SettingsDialog() {
         </DialogHeader>
 
         <Tabs defaultValue="llm" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="llm" className="flex items-center gap-2" data-testid="tab-llm">
               <Cpu className="h-4 w-4" />
               AI Provider
@@ -211,6 +243,10 @@ export function SettingsDialog() {
             <TabsTrigger value="platforms" className="flex items-center gap-2" data-testid="tab-platforms">
               <Code2 className="h-4 w-4" />
               Platforms
+            </TabsTrigger>
+            <TabsTrigger value="features" className="flex items-center gap-2" data-testid="tab-features">
+              <ToggleRight className="h-4 w-4" />
+              Features
             </TabsTrigger>
           </TabsList>
 
@@ -400,6 +436,30 @@ export function SettingsDialog() {
                 </p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="features" className="space-y-4 pt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <Label htmlFor="sow-toggle" className="font-medium">Statement of Work</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Generate scope documents, pricing estimates, and legal terms
+                  </p>
+                </div>
+                <Switch
+                  id="sow-toggle"
+                  checked={featureSettings.showStatementOfWork}
+                  onCheckedChange={(checked) =>
+                    setFeatureSettings({ ...featureSettings, showStatementOfWork: checked })
+                  }
+                  data-testid="switch-sow-feature"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When disabled, the wizard will skip the Statement of Work step and go directly from Build Pack to Create App.
+              </p>
+            </div>
           </TabsContent>
         </Tabs>
 

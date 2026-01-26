@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
-import { WIZARD_STEPS } from "@shared/schema";
+import { WIZARD_STEPS_WITH_SOW, WIZARD_STEPS_WITHOUT_SOW } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { isSOWEnabled } from "@/components/settings-dialog";
 
 interface WizardProgressProps {
   currentStep: number;
@@ -8,10 +9,12 @@ interface WizardProgressProps {
 }
 
 export function WizardProgress({ currentStep, onStepClick }: WizardProgressProps) {
+  const steps = isSOWEnabled() ? WIZARD_STEPS_WITH_SOW : WIZARD_STEPS_WITHOUT_SOW;
+  
   return (
     <div className="w-full py-6 px-8" data-testid="wizard-progress">
       <div className="flex items-center justify-between max-w-4xl mx-auto">
-        {WIZARD_STEPS.map((step, index) => {
+        {steps.map((step, index) => {
           const isCompleted = currentStep > step.id;
           const isActive = currentStep === step.id;
           const isClickable = step.id <= currentStep;
@@ -54,7 +57,7 @@ export function WizardProgress({ currentStep, onStepClick }: WizardProgressProps
                 </div>
               </button>
 
-              {index < WIZARD_STEPS.length - 1 && (
+              {index < steps.length - 1 && (
                 <div
                   className={cn(
                     "flex-1 h-0.5 mx-4 transition-colors",

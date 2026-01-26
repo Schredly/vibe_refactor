@@ -3,7 +3,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar";
 import { WizardProgress } from "@/components/wizard-progress";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SettingsDialog } from "@/components/settings-dialog";
+import { SettingsDialog, isSOWEnabled } from "@/components/settings-dialog";
 import { LogsDialog } from "@/components/logs-dialog";
 import { LoadScriptStep } from "@/components/steps/load-script-step";
 import { CaptureAnswersStep } from "@/components/steps/capture-answers-step";
@@ -120,6 +120,8 @@ export default function Home() {
       );
     }
 
+    const sowEnabled = isSOWEnabled();
+
     switch (currentStep) {
       case 1:
         return (
@@ -165,16 +167,27 @@ export default function Home() {
           />
         );
       case 5:
-        return (
-          <StatementOfWorkStep
-            key={activeProject.id}
-            projectName={activeProject.name}
-            detailedSummary={activeProject.detailedSummary}
-            statementOfWork={activeProject.statementOfWork}
-            onSaveSOW={setStatementOfWork}
-            onContinue={() => goToStep(6)}
-          />
-        );
+        if (sowEnabled) {
+          return (
+            <StatementOfWorkStep
+              key={activeProject.id}
+              projectName={activeProject.name}
+              detailedSummary={activeProject.detailedSummary}
+              statementOfWork={activeProject.statementOfWork}
+              onSaveSOW={setStatementOfWork}
+              onContinue={() => goToStep(6)}
+            />
+          );
+        } else {
+          return (
+            <CreateAppStep
+              key={activeProject.id}
+              projectName={activeProject.name}
+              prompts={activeProject.generatedPrompts}
+              detailedSummary={activeProject.detailedSummary}
+            />
+          );
+        }
       case 6:
         return (
           <CreateAppStep
