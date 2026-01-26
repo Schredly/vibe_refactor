@@ -37,11 +37,13 @@ import type {
   MVPSOW, 
   ExtensionSOW, 
   MSATerms,
+  LegalTerms,
   ComplexityTier,
   extensionTemplates,
   defaultPricingTiers,
   SOWLineItem
 } from "@shared/schema";
+import { defaultLegalTerms } from "@shared/schema";
 
 interface StatementOfWorkStepProps {
   projectName: string;
@@ -85,6 +87,7 @@ export function StatementOfWorkStep({
   const mvpSOW = statementOfWork?.mvpSOW;
   const extensions = statementOfWork?.extensions || [];
   const msaTerms = statementOfWork?.msaTerms;
+  const legalTerms = statementOfWork?.legalTerms || defaultLegalTerms;
 
   const handleGenerateSOW = useCallback(async () => {
     if (!detailedSummary) {
@@ -120,6 +123,7 @@ export function StatementOfWorkStep({
         extensions: [],
         pricingTiers: [],
         hourlyRate,
+        legalTerms: defaultLegalTerms,
         createdAt: now,
         updatedAt: now,
         lastGeneratedAt: now,
@@ -209,6 +213,35 @@ export function StatementOfWorkStep({
 
     onSaveSOW(updatedSOW);
   }, [statementOfWork, hourlyRate, onSaveSOW]);
+
+  const toggleLegalTerms = useCallback((enabled: boolean) => {
+    if (!statementOfWork) return;
+
+    const now = new Date().toISOString();
+    const updatedSOW: StatementOfWork = {
+      ...statementOfWork,
+      legalTerms: enabled ? defaultLegalTerms : { ...defaultLegalTerms, enabled: false },
+      updatedAt: now,
+    };
+
+    onSaveSOW(updatedSOW);
+  }, [statementOfWork, onSaveSOW]);
+
+  const updateLegalTerms = useCallback((updates: Partial<LegalTerms>) => {
+    if (!statementOfWork) return;
+
+    const now = new Date().toISOString();
+    const updatedSOW: StatementOfWork = {
+      ...statementOfWork,
+      legalTerms: {
+        ...(statementOfWork.legalTerms || defaultLegalTerms),
+        ...updates,
+      },
+      updatedAt: now,
+    };
+
+    onSaveSOW(updatedSOW);
+  }, [statementOfWork, onSaveSOW]);
 
   const updateHourlyRate = useCallback((rate: number) => {
     setHourlyRate(rate);
@@ -457,6 +490,140 @@ export function StatementOfWorkStep({
         }
       }
 
+      // Legal Terms Section
+      if (legalTerms?.enabled) {
+        addSpacing(10);
+        addHorizontalLine();
+        addText("TERMS AND CONDITIONS", 14, "bold", [124, 58, 237]);
+        addSpacing(8);
+
+        // Payment Terms
+        addText("1. PAYMENT TERMS", 11, "bold");
+        addSpacing(3);
+        addBullet(`A deposit of ${legalTerms.paymentTerms.depositPercent}% is required before work commences.`);
+        addBullet(`Remaining balance is due within ${legalTerms.paymentTerms.netDays} days of invoice (Net ${legalTerms.paymentTerms.netDays}).`);
+        addBullet(`Late payments are subject to a ${legalTerms.paymentTerms.lateFeePercent}% monthly interest charge.`);
+        addBullet(`All payments shall be made in ${legalTerms.paymentTerms.currency}.`);
+        addSpacing(6);
+
+        // Intellectual Property
+        addText("2. INTELLECTUAL PROPERTY", 11, "bold");
+        addSpacing(3);
+        const ipOwnershipText = {
+          client: "All intellectual property rights in the deliverables shall transfer to and become the sole property of the Client",
+          developer: "Developer retains all intellectual property rights in the deliverables, granting Client a perpetual license to use",
+          joint: "Intellectual property rights shall be jointly owned by both parties",
+          license: "Client receives a perpetual, non-exclusive license to use the deliverables",
+        };
+        addBullet(ipOwnershipText[legalTerms.ipOwnership] + ".");
+        if (legalTerms.ipTransferUponPayment) {
+          addBullet("Transfer of intellectual property rights is contingent upon receipt of full payment.");
+        }
+        addBullet("Developer retains the right to use generic, non-proprietary code and methodologies developed during the project.");
+        addSpacing(6);
+
+        // Confidentiality
+        if (legalTerms.confidentiality.enabled) {
+          addText("3. CONFIDENTIALITY", 11, "bold");
+          addSpacing(3);
+          addBullet("Both parties agree to maintain the confidentiality of all proprietary information exchanged during this engagement.");
+          addBullet(`This obligation shall remain in effect for ${legalTerms.confidentiality.durationYears} years following the completion or termination of this agreement.`);
+          addBullet("Confidential information does not include information that is publicly available or independently developed.");
+          addSpacing(6);
+        }
+
+        // Limitation of Liability
+        addText("4. LIMITATION OF LIABILITY", 11, "bold");
+        addSpacing(3);
+        const liabilityText = {
+          contract_value: "the total fees paid under this Statement of Work",
+          "12_months_fees": "the total fees paid in the twelve (12) months preceding the claim",
+          unlimited: "no contractual limitation (subject to applicable law)",
+        };
+        addBullet(`Developer's total liability shall not exceed ${liabilityText[legalTerms.liabilityLimit]}.`);
+        addBullet("In no event shall either party be liable for indirect, incidental, consequential, special, or punitive damages.");
+        addBullet("This limitation applies regardless of the form of action, whether in contract, tort, or otherwise.");
+        addSpacing(6);
+
+        // Warranties
+        addText("5. WARRANTIES", 11, "bold");
+        addSpacing(3);
+        addBullet(`Developer warrants that deliverables will be free from ${legalTerms.warranties.warrantyScope} for a period of ${legalTerms.warranties.defectPeriodDays} days from delivery.`);
+        addBullet("Developer warrants that it has the right to provide the services and deliverables without infringing third-party rights.");
+        addBullet("EXCEPT AS EXPRESSLY SET FORTH HEREIN, DEVELOPER DISCLAIMS ALL OTHER WARRANTIES, EXPRESS OR IMPLIED.");
+        addSpacing(6);
+
+        // Termination
+        addText("6. TERMINATION", 11, "bold");
+        addSpacing(3);
+        if (legalTerms.termination.forCause) {
+          addBullet("Either party may terminate this agreement for cause upon material breach by the other party that remains uncured for 14 days after written notice.");
+        }
+        if (legalTerms.termination.forConvenience) {
+          addBullet(`Either party may terminate this agreement for convenience with ${legalTerms.termination.noticeDays} days written notice.`);
+          if (legalTerms.termination.killFeePercent > 0) {
+            addBullet(`Upon termination for convenience by Client, a termination fee of ${legalTerms.termination.killFeePercent}% of remaining project value shall be due.`);
+          }
+        }
+        addBullet("Upon termination, Client shall pay for all work completed through the termination date.");
+        addSpacing(6);
+
+        // Dispute Resolution
+        addText("7. DISPUTE RESOLUTION", 11, "bold");
+        addSpacing(3);
+        const disputeText = {
+          mediation: "The parties agree to attempt resolution through good-faith mediation before pursuing other remedies.",
+          arbitration: "Any disputes shall be resolved through binding arbitration in accordance with applicable rules.",
+          litigation: "Any disputes shall be resolved through the courts of competent jurisdiction.",
+        };
+        addBullet(disputeText[legalTerms.disputeResolution]);
+        addBullet(`This agreement shall be governed by the laws of ${legalTerms.governingLaw}.`);
+        addSpacing(6);
+
+        // Additional Clauses
+        addText("8. GENERAL PROVISIONS", 11, "bold");
+        addSpacing(3);
+        if (legalTerms.independentContractor) {
+          addBullet("Developer is an independent contractor and nothing herein shall be construed as creating an employment or agency relationship.");
+        }
+        if (legalTerms.forceMaileure) {
+          addBullet("Neither party shall be liable for delays or failure to perform due to circumstances beyond reasonable control (force majeure).");
+        }
+        addBullet("This Statement of Work constitutes the entire agreement between the parties with respect to the subject matter hereof.");
+        addBullet("Any amendments must be made in writing and signed by both parties.");
+        addBullet("If any provision is found unenforceable, the remaining provisions shall continue in full force and effect.");
+        addSpacing(10);
+
+        // Signature Block
+        addHorizontalLine();
+        addSpacing(5);
+        addText("ACCEPTANCE", 12, "bold", [124, 58, 237]);
+        addSpacing(8);
+        addText("By signing below, both parties agree to the terms and conditions set forth in this Statement of Work.", 10, "normal", [80, 80, 80]);
+        addSpacing(15);
+
+        // Client signature
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y, margin + 80, y);
+        y += 5;
+        addText("Client Signature", 9, "normal", [120, 120, 120]);
+        addSpacing(3);
+        doc.line(margin, y, margin + 60, y);
+        y += 5;
+        addText("Date", 9, "normal", [120, 120, 120]);
+        addSpacing(10);
+
+        // Developer signature
+        doc.line(margin, y, margin + 80, y);
+        y += 5;
+        addText("Developer Signature", 9, "normal", [120, 120, 120]);
+        addSpacing(3);
+        doc.line(margin, y, margin + 60, y);
+        y += 5;
+        addText("Date", 9, "normal", [120, 120, 120]);
+      }
+
       // Footer on last page
       const footerY = pageHeight - 15;
       doc.setFontSize(8);
@@ -480,7 +647,7 @@ export function StatementOfWorkStep({
         variant: "destructive",
       });
     }
-  }, [projectName, mvpSOW, extensions, msaTerms, hourlyRate, calculateTotal, toast]);
+  }, [projectName, mvpSOW, extensions, msaTerms, legalTerms, hourlyRate, calculateTotal, toast]);
 
   const generateExportContent = useCallback(() => {
     let content = `# Statement of Work\n## ${projectName}\n\nGenerated: ${new Date().toLocaleDateString()}\n\n`;
@@ -666,7 +833,7 @@ export function StatementOfWorkStep({
         </Card>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="mvp" data-testid="tab-mvp-sow">
               <FileCheck className="w-4 h-4 mr-2" />
               MVP SOW
@@ -678,6 +845,10 @@ export function StatementOfWorkStep({
             <TabsTrigger value="msa" data-testid="tab-msa">
               <Briefcase className="w-4 h-4 mr-2" />
               MSA
+            </TabsTrigger>
+            <TabsTrigger value="legal" data-testid="tab-legal">
+              <Shield className="w-4 h-4 mr-2" />
+              Legal
             </TabsTrigger>
           </TabsList>
 
@@ -1034,6 +1205,178 @@ export function StatementOfWorkStep({
                         <span>Approval Threshold</span>
                         <span className="font-medium">{msaTerms.changeProcess?.minimumHoursForApproval || 4}+ hours</span>
                       </div>
+                    </div>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="legal" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Legal Terms & Conditions</CardTitle>
+                    <CardDescription>
+                      Include standard legal clauses in your Statement of Work
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="legal-toggle" className="text-sm">Include Legal Terms</Label>
+                    <Switch
+                      id="legal-toggle"
+                      checked={legalTerms?.enabled || false}
+                      onCheckedChange={toggleLegalTerms}
+                      data-testid="switch-legal-toggle"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              {legalTerms?.enabled && (
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                        Payment Terms
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Deposit Required</span>
+                          <span className="font-medium">{legalTerms.paymentTerms.depositPercent}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Payment Due</span>
+                          <span className="font-medium">Net {legalTerms.paymentTerms.netDays} days</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Late Fee</span>
+                          <span className="font-medium">{legalTerms.paymentTerms.lateFeePercent}% monthly</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <FileCheck className="w-4 h-4 text-primary" />
+                        Intellectual Property
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>IP Ownership</span>
+                          <Badge variant="outline" className="capitalize">
+                            {legalTerms.ipOwnership === "client" ? "Client Owns" : 
+                             legalTerms.ipOwnership === "developer" ? "Developer Owns" :
+                             legalTerms.ipOwnership === "joint" ? "Joint Ownership" : "License Only"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Transfer Upon Payment</span>
+                          <span className="font-medium">{legalTerms.ipTransferUponPayment ? "Yes" : "No"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-primary" />
+                        Confidentiality
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Enabled</span>
+                          <span className="font-medium">{legalTerms.confidentiality.enabled ? "Yes" : "No"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Duration</span>
+                          <span className="font-medium">{legalTerms.confidentiality.durationYears} years</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Gauge className="w-4 h-4 text-primary" />
+                        Liability & Warranties
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Liability Limit</span>
+                          <Badge variant="outline" className="text-xs">
+                            {legalTerms.liabilityLimit === "contract_value" ? "Contract Value" :
+                             legalTerms.liabilityLimit === "12_months_fees" ? "12 Months Fees" : "Unlimited"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Warranty Period</span>
+                          <span className="font-medium">{legalTerms.warranties.defectPeriodDays} days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-primary" />
+                        Termination
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Notice Period</span>
+                          <span className="font-medium">{legalTerms.termination.noticeDays} days</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Termination Fee</span>
+                          <span className="font-medium">{legalTerms.termination.killFeePercent}% of remaining</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Briefcase className="w-4 h-4 text-primary" />
+                        Dispute Resolution
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Method</span>
+                          <Badge variant="outline" className="capitalize">
+                            {legalTerms.disputeResolution}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Governing Law</span>
+                          <span className="font-medium text-xs">{legalTerms.governingLaw}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Additional Clauses</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {legalTerms.independentContractor && (
+                        <Badge variant="secondary">Independent Contractor</Badge>
+                      )}
+                      {legalTerms.forceMaileure && (
+                        <Badge variant="secondary">Force Majeure</Badge>
+                      )}
+                      {legalTerms.termination.forCause && (
+                        <Badge variant="secondary">Termination for Cause</Badge>
+                      )}
+                      {legalTerms.termination.forConvenience && (
+                        <Badge variant="secondary">Termination for Convenience</Badge>
+                      )}
                     </div>
                   </div>
                 </CardContent>

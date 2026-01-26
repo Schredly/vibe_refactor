@@ -620,6 +620,88 @@ export const msaTermsSchema = z.object({
 
 export type MSATerms = z.infer<typeof msaTermsSchema>;
 
+// Legal Terms for SOW
+export const legalTermsSchema = z.object({
+  enabled: z.boolean().default(true),
+  
+  // Payment Terms
+  paymentTerms: z.object({
+    depositPercent: z.number().default(50),
+    netDays: z.number().default(30),
+    lateFeePercent: z.number().default(1.5),
+    currency: z.string().default("USD"),
+  }),
+  
+  // Intellectual Property
+  ipOwnership: z.enum(["client", "developer", "joint", "license"]).default("client"),
+  ipTransferUponPayment: z.boolean().default(true),
+  
+  // Confidentiality
+  confidentiality: z.object({
+    enabled: z.boolean().default(true),
+    durationYears: z.number().default(2),
+  }),
+  
+  // Limitation of Liability
+  liabilityLimit: z.enum(["contract_value", "12_months_fees", "unlimited"]).default("contract_value"),
+  
+  // Warranties
+  warranties: z.object({
+    defectPeriodDays: z.number().default(30),
+    warrantyScope: z.string().default("material defects"),
+  }),
+  
+  // Termination
+  termination: z.object({
+    noticeDays: z.number().default(14),
+    forCause: z.boolean().default(true),
+    forConvenience: z.boolean().default(true),
+    killFeePercent: z.number().default(25),
+  }),
+  
+  // Dispute Resolution
+  disputeResolution: z.enum(["arbitration", "mediation", "litigation"]).default("mediation"),
+  governingLaw: z.string().default("State of Delaware"),
+  
+  // Additional clauses
+  independentContractor: z.boolean().default(true),
+  forceMaileure: z.boolean().default(true),
+});
+
+export type LegalTerms = z.infer<typeof legalTermsSchema>;
+
+// Default legal terms
+export const defaultLegalTerms: LegalTerms = {
+  enabled: true,
+  paymentTerms: {
+    depositPercent: 50,
+    netDays: 30,
+    lateFeePercent: 1.5,
+    currency: "USD",
+  },
+  ipOwnership: "client",
+  ipTransferUponPayment: true,
+  confidentiality: {
+    enabled: true,
+    durationYears: 2,
+  },
+  liabilityLimit: "contract_value",
+  warranties: {
+    defectPeriodDays: 30,
+    warrantyScope: "material defects",
+  },
+  termination: {
+    noticeDays: 14,
+    forCause: true,
+    forConvenience: true,
+    killFeePercent: 25,
+  },
+  disputeResolution: "mediation",
+  governingLaw: "State of Delaware",
+  independentContractor: true,
+  forceMaileure: true,
+};
+
 // Complete Statement of Work for a project
 export const statementOfWorkSchema = z.object({
   projectId: z.string(),
@@ -632,6 +714,9 @@ export const statementOfWorkSchema = z.object({
   
   // MSA option
   msaTerms: msaTermsSchema.optional(),
+  
+  // Legal Terms
+  legalTerms: legalTermsSchema.optional(),
   
   // Pricing configuration
   pricingTiers: z.array(pricingTierSchema).default([]),
