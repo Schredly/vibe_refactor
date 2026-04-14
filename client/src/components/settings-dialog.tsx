@@ -61,7 +61,7 @@ export function isSOWEnabled(): boolean {
 }
 
 const providerModels: Record<LLMProvider, string[]> = {
-  openai: ["gpt-5.2", "gpt-5.1", "gpt-5.0", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
+  openai: ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
   anthropic: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
   gemini: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
   groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"],
@@ -72,7 +72,13 @@ export function loadLLMSettings(): LLMSettings {
   try {
     const stored = localStorage.getItem(LLM_STORAGE_KEY);
     if (stored) {
-      return { ...defaultLLMSettings, ...JSON.parse(stored) };
+      const merged = { ...defaultLLMSettings, ...JSON.parse(stored) } as LLMSettings;
+      const validModels = providerModels[merged.provider] || [];
+      if (merged.provider !== "custom" && !validModels.includes(merged.model)) {
+        merged.model = validModels[0] || defaultLLMSettings.model;
+        localStorage.setItem(LLM_STORAGE_KEY, JSON.stringify(merged));
+      }
+      return merged;
     }
   } catch {
     // ignore

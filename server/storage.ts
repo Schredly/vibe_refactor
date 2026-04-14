@@ -1,6 +1,6 @@
 import type { Project, InsertProject, InsertLlmLog, LlmLog } from "@shared/schema";
 import { llmLogs } from "@shared/schema";
-import { db } from "./db";
+import { db, hasDatabase } from "./db";
 import { desc, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -19,9 +19,11 @@ export interface IStorage {
 }
 
 // Projects are kept in memory (localStorage on frontend handles persistence)
-// LLM logs are stored in database for persistence
+// LLM logs are stored in database for persistence, with in-memory fallback
 export class HybridStorage implements IStorage {
   private projects: Map<string, Project>;
+  private memoryLogs: LlmLog[] = [];
+  private nextLogId = 1;
 
   constructor() {
     this.projects = new Map();
@@ -74,24 +76,54 @@ export class HybridStorage implements IStorage {
     return this.projects.delete(id);
   }
 
-  // LLM Logging methods - stored in PostgreSQL
+  // LLM Logging methods - PostgreSQL when available, otherwise in-memory
   async createLlmLog(log: InsertLlmLog): Promise<LlmLog> {
-    const [created] = await db.insert(llmLogs).values(log).returning();
+    if (hasDatabase && db) {
+      const [created] = await db.insert(llmLogs).values(log).returning();
+      return created;
+    }
+    const created: LlmLog = {
+      id: this.nextLogId++,
+      createdAt: new Date(),
+      stepName: log.stepName,
+      projectId: log.projectId ?? null,
+      provider: log.provider,
+      model: log.model,
+      inputMessages: log.inputMessages,
+      outputContent: log.outputContent ?? null,
+      inputTokens: null,
+      outputTokens: null,
+      durationMs: log.durationMs ?? null,
+      status: log.status ?? "success",
+      errorMessage: log.errorMessage ?? null,
+    };
+    this.memoryLogs.unshift(created);
+    if (this.memoryLogs.length > 1000) this.memoryLogs.length = 1000;
     return created;
   }
 
   async getLlmLogs(limit: number = 100): Promise<LlmLog[]> {
-    return db.select().from(llmLogs).orderBy(desc(llmLogs.createdAt)).limit(limit);
+    if (hasDatabase && db) {
+      return db.select().from(llmLogs).orderBy(desc(llmLogs.createdAt)).limit(limit);
+    }
+    return this.memoryLogs.slice(0, limit);
   }
 
   async getLlmLogsByProject(projectId: string): Promise<LlmLog[]> {
-    return db.select().from(llmLogs)
-      .where(eq(llmLogs.projectId, projectId))
-      .orderBy(desc(llmLogs.createdAt));
+    if (hasDatabase && db) {
+      return db.select().from(llmLogs)
+        .where(eq(llmLogs.projectId, projectId))
+        .orderBy(desc(llmLogs.createdAt));
+    }
+    return this.memoryLogs.filter((l) => l.projectId === projectId);
   }
 
   async clearLlmLogs(): Promise<void> {
-    await db.delete(llmLogs);
+    if (hasDatabase && db) {
+      await db.delete(llmLogs);
+      return;
+    }
+    this.memoryLogs = [];
   }
 }
 
