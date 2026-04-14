@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, Edit3, Check, X, FileText, Sparkles, Download } from "lucide-react";
+import { Plus, Trash2, Edit3, Check, X, FileText, Download } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -85,14 +85,13 @@ export function AppSidebar({
   return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-sidebar-foreground">Vibe Refactor</h1>
-            <p className="text-xs text-muted-foreground">MVP Wizard</p>
-          </div>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-primary leading-none">
+            OverYonder
+          </h1>
+          <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
+            Vibe Refactor
+          </p>
         </div>
       </SidebarHeader>
 
@@ -166,8 +165,9 @@ export function AppSidebar({
                     ) : (
                       <div
                         className={cn(
-                          "w-full flex items-center justify-between group px-3 py-2 rounded-md cursor-pointer hover-elevate",
-                          activeProjectId === project.id && "bg-sidebar-accent"
+                          "w-full flex items-center justify-between group px-3 py-2 rounded-md cursor-pointer hover-elevate border border-transparent",
+                          activeProjectId === project.id &&
+                            "bg-sidebar-accent text-sidebar-accent-foreground border-primary/20 font-medium"
                         )}
                         onClick={() => onSelectProject(project.id)}
                         data-testid={`button-project-${project.id}`}
